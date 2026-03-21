@@ -1,0 +1,818 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["public"]
+}
+
+model agent_group_tools {
+  agent_group_id String       @db.Uuid
+  tool_id        String       @db.Uuid
+  is_allowed     Boolean      @default(true)
+  created_at     DateTime     @default(now()) @db.Timestamptz(6)
+  agent_groups   agent_groups @relation(fields: [agent_group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tools          tools        @relation(fields: [tool_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([agent_group_id, tool_id])
+  @@schema("public")
+}
+
+model agent_groups {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                String                @unique @db.VarChar(100)
+  name                String                @db.VarChar(255)
+  description         String?
+  is_active           Boolean               @default(true)
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
+  agent_group_tools   agent_group_tools[]
+  agent_submodules    agent_submodules[]
+  conversations       conversations[]
+  generated_artifacts generated_artifacts[]
+  service_tokens      service_tokens[]
+  session_contexts    session_contexts[]
+  tool_call_logs      tool_call_logs[]
+  user_agent_access   user_agent_access[]
+
+  @@schema("public")
+}
+
+model agent_submodules {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agent_group_id String       @db.Uuid
+  code           String       @unique @db.VarChar(100)
+  name           String       @db.VarChar(255)
+  description    String?
+  is_active      Boolean      @default(true)
+  created_at     DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime     @default(now()) @db.Timestamptz(6)
+  agent_groups   agent_groups @relation(fields: [agent_group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model analytics_snapshots {
+  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  snapshot_date      DateTime     @db.Date
+  department_id      String?      @db.Uuid
+  position_id        String?      @db.Uuid
+  completion_rate    Decimal?     @db.Decimal(5, 2)
+  avg_score          Decimal?     @db.Decimal(5, 2)
+  satisfaction_score Decimal?     @db.Decimal(5, 2)
+  dropout_rate       Decimal?     @db.Decimal(5, 2)
+  created_at         DateTime     @default(now()) @db.Timestamptz(6)
+  departments        departments? @relation(fields: [department_id], references: [id], onUpdate: NoAction)
+  positions          positions?   @relation(fields: [position_id], references: [id], onUpdate: NoAction)
+
+  @@unique([snapshot_date, department_id, position_id])
+  @@schema("public")
+}
+
+model auth_sessions {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id            String    @db.Uuid
+  refresh_token_hash String?
+  ip_address         String?   @db.Inet
+  user_agent         String?
+  expired_at         DateTime? @db.Timestamptz(6)
+  revoked_at         DateTime? @db.Timestamptz(6)
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+  users              users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model backend_api_catalog {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code           String           @unique @db.VarChar(120)
+  name           String           @db.VarChar(255)
+  http_method    String           @db.VarChar(10)
+  path           String           @db.VarChar(500)
+  description    String?
+  is_active      Boolean          @default(true)
+  created_at     DateTime         @default(now()) @db.Timestamptz(6)
+  tool_call_logs tool_call_logs[]
+  tools          tools[]
+
+  @@schema("public")
+}
+
+model company_policies {
+  id             String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code           String     @unique @db.VarChar(120)
+  title          String     @db.VarChar(255)
+  category       String     @db.VarChar(100)
+  document_id    String?    @db.Uuid
+  version_label  String?    @db.VarChar(50)
+  effective_date DateTime?  @db.Date
+  is_active      Boolean    @default(true)
+  created_at     DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime   @default(now()) @db.Timestamptz(6)
+  documents      documents? @relation(fields: [document_id], references: [id], onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+model contacts_directory {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String       @db.VarChar(255)
+  department_id String?      @db.Uuid
+  role_title    String?      @db.VarChar(255)
+  email         String?      @db.Citext
+  phone         String?      @db.VarChar(50)
+  support_type  String?      @db.VarChar(100)
+  is_active     Boolean      @default(true)
+  created_at    DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime     @default(now()) @db.Timestamptz(6)
+  departments   departments? @relation(fields: [department_id], references: [id], onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model conversations {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id        String           @db.Uuid
+  agent_group_id String?          @db.Uuid
+  channel        String           @default("webchat") @db.VarChar(50)
+  session_key    String           @db.VarChar(255)
+  status         String           @default("open") @db.VarChar(30)
+  started_at     DateTime         @default(now()) @db.Timestamptz(6)
+  ended_at       DateTime?        @db.Timestamptz(6)
+  agent_groups   agent_groups?    @relation(fields: [agent_group_id], references: [id], onUpdate: NoAction)
+  users          users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  messages       messages[]
+  tool_call_logs tool_call_logs[]
+
+  @@unique([user_id, session_key])
+  @@index([agent_group_id], map: "idx_conversations_agent_group_id")
+  @@index([user_id], map: "idx_conversations_user_id")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model course_prerequisites {
+  course_id                                                    String  @db.Uuid
+  prerequisite_course_id                                       String  @db.Uuid
+  courses_course_prerequisites_course_idTocourses              courses @relation("course_prerequisites_course_idTocourses", fields: [course_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  courses_course_prerequisites_prerequisite_course_idTocourses courses @relation("course_prerequisites_prerequisite_course_idTocourses", fields: [prerequisite_course_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([course_id, prerequisite_course_id])
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model course_skills {
+  course_id     String  @db.Uuid
+  skill_id      String  @db.Uuid
+  outcome_level Int     @default(1)
+  courses       courses @relation(fields: [course_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  skills        skills  @relation(fields: [skill_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([course_id, skill_id])
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model courses {
+  id                                                                        String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                                                                      String                 @unique @db.VarChar(100)
+  title                                                                     String                 @db.VarChar(255)
+  description                                                               String?
+  category                                                                  String?                @db.VarChar(100)
+  level_no                                                                  Int                    @default(1)
+  duration_hours                                                            Decimal                @default(0) @db.Decimal(8, 2)
+  format                                                                    String                 @default("self_paced") @db.VarChar(50)
+  content_document_id                                                       String?                @db.Uuid
+  is_active                                                                 Boolean                @default(true)
+  created_at                                                                DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at                                                                DateTime               @default(now()) @db.Timestamptz(6)
+  course_prerequisites_course_prerequisites_course_idTocourses              course_prerequisites[] @relation("course_prerequisites_course_idTocourses")
+  course_prerequisites_course_prerequisites_prerequisite_course_idTocourses course_prerequisites[] @relation("course_prerequisites_prerequisite_course_idTocourses")
+  course_skills                                                             course_skills[]
+  documents                                                                 documents?             @relation(fields: [content_document_id], references: [id], onUpdate: NoAction)
+  learning_path_items                                                       learning_path_items[]
+  quiz_templates                                                            quiz_templates[]
+  training_feedback                                                         training_feedback[]
+  training_sessions                                                         training_sessions[]
+  user_courses                                                              user_courses[]
+
+  @@schema("public")
+}
+
+model departments {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                String                @unique @db.VarChar(50)
+  name                String                @db.VarChar(255)
+  description         String?
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
+  analytics_snapshots analytics_snapshots[]
+  contacts_directory  contacts_directory[]
+  learning_paths      learning_paths[]
+  onboarding_plans    onboarding_plans[]
+  users               users[]
+
+  @@schema("public")
+}
+
+model document_permissions {
+  document_id String    @db.Uuid
+  role_id     String    @db.Uuid
+  can_view    Boolean   @default(true)
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  documents   documents @relation(fields: [document_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  roles       roles     @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([document_id, role_id])
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model documents {
+  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                 String?                @unique @db.VarChar(120)
+  title                String                 @db.VarChar(255)
+  category             String                 @db.VarChar(100)
+  group_code           String?                @db.VarChar(100)
+  source_type          String                 @default("file") @db.VarChar(30)
+  file_path            String?
+  mime_type            String?                @db.VarChar(120)
+  content_text         String?
+  content_json         Json?
+  version_no           Int                    @default(1)
+  is_active            Boolean                @default(true)
+  created_by           String?                @db.Uuid
+  created_at           DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime               @default(now()) @db.Timestamptz(6)
+  company_policies     company_policies[]
+  courses              courses[]
+  document_permissions document_permissions[]
+  users                users?                 @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  onboarding_tasks     onboarding_tasks[]
+
+  @@index([category], map: "idx_documents_category")
+  @@index([content_json], map: "idx_documents_content_json_gin", type: Gin)
+  @@index([group_code], map: "idx_documents_group_code")
+  @@schema("public")
+}
+
+model faq_items {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  category   String   @db.VarChar(100)
+  audience   String   @default("all") @db.VarChar(100)
+  question   String
+  answer     String
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+model generated_artifacts {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id        String?       @db.Uuid
+  agent_group_id String?       @db.Uuid
+  artifact_type  String        @db.VarChar(100)
+  title          String?       @db.VarChar(255)
+  payload_json   Json          @default("{}")
+  file_path      String?
+  created_at     DateTime      @default(now()) @db.Timestamptz(6)
+  agent_groups   agent_groups? @relation(fields: [agent_group_id], references: [id], onUpdate: NoAction)
+  users          users?        @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([payload_json], map: "idx_generated_artifacts_payload_json_gin", type: Gin)
+  @@schema("public")
+}
+
+model learning_path_items {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  learning_path_id String         @db.Uuid
+  course_id        String         @db.Uuid
+  order_no         Int
+  required         Boolean        @default(true)
+  courses          courses        @relation(fields: [course_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  learning_paths   learning_paths @relation(fields: [learning_path_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([learning_path_id, course_id])
+  @@unique([learning_path_id, order_no])
+  @@schema("public")
+}
+
+model learning_paths {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                String                @unique @db.VarChar(100)
+  name                String                @db.VarChar(255)
+  department_id       String?               @db.Uuid
+  position_id         String?               @db.Uuid
+  target_level        Int?
+  description         String?
+  is_active           Boolean               @default(true)
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
+  learning_path_items learning_path_items[]
+  departments         departments?          @relation(fields: [department_id], references: [id], onUpdate: NoAction)
+  positions           positions?            @relation(fields: [position_id], references: [id], onUpdate: NoAction)
+  user_learning_paths user_learning_paths[]
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model messages {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversation_id String           @db.Uuid
+  sender_type     String           @db.VarChar(20)
+  sender_user_id  String?          @db.Uuid
+  content         String?
+  metadata        Json             @default("{}")
+  created_at      DateTime         @default(now()) @db.Timestamptz(6)
+  conversations   conversations    @relation(fields: [conversation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users           users?           @relation(fields: [sender_user_id], references: [id], onUpdate: NoAction)
+  tool_call_logs  tool_call_logs[]
+
+  @@index([conversation_id], map: "idx_messages_conversation_id")
+  @@index([created_at], map: "idx_messages_created_at")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model onboarding_plans {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code             String             @unique @db.VarChar(100)
+  name             String             @db.VarChar(255)
+  department_id    String?            @db.Uuid
+  position_id      String?            @db.Uuid
+  duration_days    Int                @default(30)
+  description      String?
+  is_active        Boolean            @default(true)
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime           @default(now()) @db.Timestamptz(6)
+  departments      departments?       @relation(fields: [department_id], references: [id], onUpdate: NoAction)
+  positions        positions?         @relation(fields: [position_id], references: [id], onUpdate: NoAction)
+  onboarding_tasks onboarding_tasks[]
+
+  @@schema("public")
+}
+
+model onboarding_tasks {
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  plan_id               String                  @db.Uuid
+  code                  String                  @db.VarChar(100)
+  task_name             String                  @db.VarChar(255)
+  description           String?
+  order_no              Int                     @default(1)
+  due_day               Int                     @default(1)
+  required              Boolean                 @default(true)
+  doc_id                String?                 @db.Uuid
+  created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime                @default(now()) @db.Timestamptz(6)
+  documents             documents?              @relation(fields: [doc_id], references: [id], onUpdate: NoAction)
+  onboarding_plans      onboarding_plans        @relation(fields: [plan_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user_onboarding_tasks user_onboarding_tasks[]
+
+  @@unique([plan_id, code])
+  @@schema("public")
+}
+
+model permissions {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code             String             @unique @db.VarChar(150)
+  name             String             @db.VarChar(255)
+  description      String?
+  resource_type    String?            @db.VarChar(100)
+  action           String?            @db.VarChar(100)
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  role_permissions role_permissions[]
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model positions {
+  id                      String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                    String                    @unique @db.VarChar(50)
+  name                    String                    @db.VarChar(255)
+  level_no                Int                       @default(1)
+  description             String?
+  created_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  analytics_snapshots     analytics_snapshots[]
+  learning_paths          learning_paths[]
+  onboarding_plans        onboarding_plans[]
+  role_skill_requirements role_skill_requirements[]
+  users                   users[]
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model quiz_attempts {
+  id                String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id           String         @db.Uuid
+  quiz_template_id  String         @db.Uuid
+  submitted_answers Json           @default("{}")
+  score             Decimal?       @db.Decimal(5, 2)
+  duration_seconds  Int?
+  started_at        DateTime       @default(now()) @db.Timestamptz(6)
+  submitted_at      DateTime?      @db.Timestamptz(6)
+  quiz_templates    quiz_templates @relation(fields: [quiz_template_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users             users          @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_quiz_attempts_user_id")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model quiz_questions {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quiz_template_id String         @db.Uuid
+  question_type    String         @default("single_choice") @db.VarChar(30)
+  question_text    String
+  options_json     Json           @default("[]")
+  answer_key_json  Json           @default("{}")
+  explanation      String?
+  score_weight     Decimal        @default(1) @db.Decimal(6, 2)
+  created_at       DateTime       @default(now()) @db.Timestamptz(6)
+  quiz_templates   quiz_templates @relation(fields: [quiz_template_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model quiz_templates {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code           String           @unique @db.VarChar(100)
+  title          String           @db.VarChar(255)
+  course_id      String?          @db.Uuid
+  difficulty     String           @default("medium") @db.VarChar(30)
+  question_count Int              @default(10)
+  created_at     DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime         @default(now()) @db.Timestamptz(6)
+  quiz_attempts  quiz_attempts[]
+  quiz_questions quiz_questions[]
+  courses        courses?         @relation(fields: [course_id], references: [id], onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+model reports {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  report_type  String    @db.VarChar(100)
+  period_start DateTime? @db.Date
+  period_end   DateTime? @db.Date
+  generated_by String?   @db.Uuid
+  title        String    @db.VarChar(255)
+  summary_json Json      @default("{}")
+  file_path    String?
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  users        users?    @relation(fields: [generated_by], references: [id], onUpdate: NoAction)
+
+  @@index([report_type], map: "idx_reports_type")
+  @@schema("public")
+}
+
+model role_permissions {
+  role_id       String      @db.Uuid
+  permission_id String      @db.Uuid
+  created_at    DateTime    @default(now()) @db.Timestamptz(6)
+  permissions   permissions @relation(fields: [permission_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  roles         roles       @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([role_id, permission_id])
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model role_skill_requirements {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  position_id    String    @db.Uuid
+  skill_id       String    @db.Uuid
+  required_level Int
+  priority       Int       @default(1)
+  positions      positions @relation(fields: [position_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  skills         skills    @relation(fields: [skill_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([position_id, skill_id])
+  @@schema("public")
+}
+
+model roles {
+  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                 String                 @unique @db.VarChar(100)
+  name                 String                 @db.VarChar(255)
+  description          String?
+  is_system            Boolean                @default(false)
+  created_at           DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime               @default(now()) @db.Timestamptz(6)
+  document_permissions document_permissions[]
+  role_permissions     role_permissions[]
+  user_roles           user_roles[]
+
+  @@schema("public")
+}
+
+model service_tokens {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code           String        @unique @db.VarChar(120)
+  agent_group_id String?       @db.Uuid
+  token_hash     String
+  scopes         Json          @default("[]")
+  is_active      Boolean       @default(true)
+  expired_at     DateTime?     @db.Timestamptz(6)
+  created_at     DateTime      @default(now()) @db.Timestamptz(6)
+  agent_groups   agent_groups? @relation(fields: [agent_group_id], references: [id], onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+model session_contexts {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_key    String        @unique @db.VarChar(255)
+  user_id        String        @db.Uuid
+  agent_group_id String?       @db.Uuid
+  context_json   Json          @default("{}")
+  expires_at     DateTime?     @db.Timestamptz(6)
+  created_at     DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime      @default(now()) @db.Timestamptz(6)
+  agent_groups   agent_groups? @relation(fields: [agent_group_id], references: [id], onUpdate: NoAction)
+  users          users         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([context_json], map: "idx_session_contexts_context_json_gin", type: Gin)
+  @@schema("public")
+}
+
+model skills {
+  id                      String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                    String                    @unique @db.VarChar(100)
+  name                    String                    @db.VarChar(255)
+  category                String?                   @db.VarChar(100)
+  description             String?
+  created_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  course_skills           course_skills[]
+  role_skill_requirements role_skill_requirements[]
+  user_skills             user_skills[]
+
+  @@schema("public")
+}
+
+model tool_call_logs {
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversation_id     String?              @db.Uuid
+  message_id          String?              @db.Uuid
+  agent_group_id      String?              @db.Uuid
+  tool_id             String?              @db.Uuid
+  api_id              String?              @db.Uuid
+  user_id             String?              @db.Uuid
+  request_payload     Json                 @default("{}")
+  response_payload    Json                 @default("{}")
+  http_status         Int?
+  success             Boolean              @default(false)
+  error_message       String?
+  started_at          DateTime             @default(now()) @db.Timestamptz(6)
+  finished_at         DateTime?            @db.Timestamptz(6)
+  conversations       conversations?       @relation(fields: [conversation_id], references: [id], onUpdate: NoAction, map: "fk_tool_logs_conversation")
+  messages            messages?            @relation(fields: [message_id], references: [id], onUpdate: NoAction, map: "fk_tool_logs_message")
+  agent_groups        agent_groups?        @relation(fields: [agent_group_id], references: [id], onUpdate: NoAction)
+  backend_api_catalog backend_api_catalog? @relation(fields: [api_id], references: [id], onUpdate: NoAction)
+  tools               tools?               @relation(fields: [tool_id], references: [id], onUpdate: NoAction)
+  users               users?               @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([started_at], map: "idx_tool_call_logs_created")
+  @@index([tool_id], map: "idx_tool_call_logs_tool_id")
+  @@index([user_id], map: "idx_tool_call_logs_user_id")
+  @@schema("public")
+}
+
+model tools {
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                String               @unique @db.VarChar(120)
+  name                String               @db.VarChar(255)
+  description         String?
+  api_id              String?              @db.Uuid
+  input_schema        Json                 @default("{}")
+  output_schema       Json                 @default("{}")
+  is_active           Boolean              @default(true)
+  created_at          DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime             @default(now()) @db.Timestamptz(6)
+  agent_group_tools   agent_group_tools[]
+  tool_call_logs      tool_call_logs[]
+  backend_api_catalog backend_api_catalog? @relation(fields: [api_id], references: [id], onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model training_attendance {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id        String            @db.Uuid
+  user_id           String            @db.Uuid
+  attendance_status String            @default("present") @db.VarChar(30)
+  checked_at        DateTime?         @db.Timestamptz(6)
+  training_sessions training_sessions @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users             users             @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([session_id, user_id])
+  @@index([user_id], map: "idx_training_attendance_user_id")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model training_feedback {
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id           String             @db.Uuid
+  course_id         String?            @db.Uuid
+  session_id        String?            @db.Uuid
+  rating            Int
+  comment           String?
+  sentiment_label   String?            @db.VarChar(30)
+  topics_json       Json               @default("[]")
+  created_at        DateTime           @default(now()) @db.Timestamptz(6)
+  courses           courses?           @relation(fields: [course_id], references: [id], onUpdate: NoAction)
+  training_sessions training_sessions? @relation(fields: [session_id], references: [id], onUpdate: NoAction)
+  users             users              @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([course_id], map: "idx_training_feedback_course_id")
+  @@index([user_id], map: "idx_training_feedback_user_id")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model training_sessions {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  course_id           String?               @db.Uuid
+  title               String                @db.VarChar(255)
+  trainer_name        String?               @db.VarChar(255)
+  start_time          DateTime              @db.Timestamptz(6)
+  end_time            DateTime              @db.Timestamptz(6)
+  location            String?               @db.VarChar(255)
+  notes               String?
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  training_attendance training_attendance[]
+  training_feedback   training_feedback[]
+  courses             courses?              @relation(fields: [course_id], references: [id], onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+model user_agent_access {
+  user_id        String       @db.Uuid
+  agent_group_id String       @db.Uuid
+  is_allowed     Boolean      @default(true)
+  created_at     DateTime     @default(now()) @db.Timestamptz(6)
+  agent_groups   agent_groups @relation(fields: [agent_group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users          users        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([user_id, agent_group_id])
+  @@schema("public")
+}
+
+model user_contexts {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String   @unique @db.Uuid
+  context_json Json     @default("{}")
+  updated_at   DateTime @default(now()) @db.Timestamptz(6)
+  users        users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([context_json], map: "idx_user_contexts_context_json_gin", type: Gin)
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model user_courses {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String    @db.Uuid
+  course_id        String    @db.Uuid
+  status           String    @default("not_started") @db.VarChar(30)
+  progress_percent Decimal   @default(0) @db.Decimal(5, 2)
+  score            Decimal?  @db.Decimal(5, 2)
+  enrolled_at      DateTime? @db.Timestamptz(6)
+  started_at       DateTime? @db.Timestamptz(6)
+  completed_at     DateTime? @db.Timestamptz(6)
+  courses          courses   @relation(fields: [course_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users            users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, course_id])
+  @@index([status], map: "idx_user_courses_status")
+  @@index([user_id], map: "idx_user_courses_user_id")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model user_learning_paths {
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id           String          @db.Uuid
+  learning_path_id  String?         @db.Uuid
+  generated_payload Json            @default("{}")
+  status            String          @default("active") @db.VarChar(30)
+  generated_at      DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime        @default(now()) @db.Timestamptz(6)
+  learning_paths    learning_paths? @relation(fields: [learning_path_id], references: [id], onUpdate: NoAction)
+  users             users           @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_user_learning_paths_user_id")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model user_onboarding_tasks {
+  id                                             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                                        String           @db.Uuid
+  onboarding_task_id                             String           @db.Uuid
+  status                                         String           @default("pending") @db.VarChar(30)
+  assigned_by                                    String?          @db.Uuid
+  assigned_at                                    DateTime         @default(now()) @db.Timestamptz(6)
+  completed_at                                   DateTime?        @db.Timestamptz(6)
+  notes                                          String?
+  users_user_onboarding_tasks_assigned_byTousers users?           @relation("user_onboarding_tasks_assigned_byTousers", fields: [assigned_by], references: [id], onUpdate: NoAction)
+  onboarding_tasks                               onboarding_tasks @relation(fields: [onboarding_task_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_user_onboarding_tasks_user_idTousers     users            @relation("user_onboarding_tasks_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, onboarding_task_id])
+  @@index([status], map: "idx_user_onboarding_tasks_status")
+  @@index([user_id], map: "idx_user_onboarding_tasks_user_id")
+  @@schema("public")
+}
+
+model user_roles {
+  user_id    String   @db.Uuid
+  role_id    String   @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  roles      roles    @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([user_id, role_id])
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model user_skills {
+  user_id          String    @db.Uuid
+  skill_id         String    @db.Uuid
+  level_no         Int       @default(0)
+  last_assessed_at DateTime? @db.Timestamptz(6)
+  created_at       DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime  @default(now()) @db.Timestamptz(6)
+  skills           skills    @relation(fields: [skill_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users            users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([user_id, skill_id])
+  @@index([user_id], map: "idx_user_skills_user_id")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model users {
+  id                                                             String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employee_code                                                  String?                 @unique @db.VarChar(100)
+  email                                                          String                  @unique @db.Citext
+  password_hash                                                  String?
+  full_name                                                      String                  @db.VarChar(255)
+  phone                                                          String?                 @db.VarChar(50)
+  avatar_url                                                     String?
+  department_id                                                  String?                 @db.Uuid
+  position_id                                                    String?                 @db.Uuid
+  manager_id                                                     String?                 @db.Uuid
+  join_date                                                      DateTime?               @db.Date
+  status                                                         String                  @default("active") @db.VarChar(30)
+  is_email_verified                                              Boolean                 @default(false)
+  last_login_at                                                  DateTime?               @db.Timestamptz(6)
+  created_at                                                     DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at                                                     DateTime                @default(now()) @db.Timestamptz(6)
+  deleted_at                                                     DateTime?               @db.Timestamptz(6)
+  auth_sessions                                                  auth_sessions[]
+  conversations                                                  conversations[]
+  documents                                                      documents[]
+  generated_artifacts                                            generated_artifacts[]
+  messages                                                       messages[]
+  quiz_attempts                                                  quiz_attempts[]
+  reports                                                        reports[]
+  session_contexts                                               session_contexts[]
+  tool_call_logs                                                 tool_call_logs[]
+  training_attendance                                            training_attendance[]
+  training_feedback                                              training_feedback[]
+  user_agent_access                                              user_agent_access[]
+  user_contexts                                                  user_contexts?
+  user_courses                                                   user_courses[]
+  user_learning_paths                                            user_learning_paths[]
+  user_onboarding_tasks_user_onboarding_tasks_assigned_byTousers user_onboarding_tasks[] @relation("user_onboarding_tasks_assigned_byTousers")
+  user_onboarding_tasks_user_onboarding_tasks_user_idTousers     user_onboarding_tasks[] @relation("user_onboarding_tasks_user_idTousers")
+  user_roles                                                     user_roles[]
+  user_skills                                                    user_skills[]
+  departments                                                    departments?            @relation(fields: [department_id], references: [id], onUpdate: NoAction)
+  users                                                          users?                  @relation("usersTousers", fields: [manager_id], references: [id], onUpdate: NoAction)
+  other_users                                                    users[]                 @relation("usersTousers")
+  positions                                                      positions?              @relation(fields: [position_id], references: [id], onUpdate: NoAction)
+
+  @@index([department_id], map: "idx_users_department_id")
+  @@index([manager_id], map: "idx_users_manager_id")
+  @@index([position_id], map: "idx_users_position_id")
+  @@index([status], map: "idx_users_status")
+  @@schema("public")
+}
