@@ -1,0 +1,1 @@
+{"version":3,"file":"openclaw.config.js","sourceRoot":"","sources":["../../src/config/openclaw.config.ts"],"names":[],"mappings":";;;AAAO,MAAM,cAAc,GAAG,GAAG,EAAE,CAAC,CAAC;IACnC,QAAQ,EAAE;QACR,OAAO,EAAE,OAAO,CAAC,GAAG,CAAC,iBAAiB,IAAI,EAAE;QAC5C,MAAM,EAAE,OAAO,CAAC,GAAG,CAAC,gBAAgB,IAAI,EAAE;KAC3C;CACF,CAAC,CAAC;AALU,QAAA,cAAc,kBAKxB"}
