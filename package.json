@@ -1,0 +1,20 @@
+{
+  "name": "openclaw-team",
+  "version": "1.0.0",
+  "description": "OpenClaw team local workspace for Express backend and React frontend",
+  "private": true,
+  "scripts": {
+    "setup": "npm install --prefix be && npm install --prefix fe",
+    "dev": "concurrently \"npm run dev --prefix be\" \"npm run dev --prefix fe\"",
+    "dev:backend": "npm run dev --prefix be",
+    "dev:frontend": "npm run dev --prefix fe",
+    "build": "npm run build --prefix fe",
+    "build:frontend": "npm run build --prefix fe"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
