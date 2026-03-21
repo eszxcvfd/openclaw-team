@@ -2,7 +2,7 @@
 
 This workspace contains:
 
-- `be/`: Node.js + Express backend
+- `be/`: NestJS backend
 - `fe/`: React frontend powered by Vite
 
 ## Getting started
