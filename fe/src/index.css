@@ -1,22 +1,28 @@
+@import "tailwindcss";
+
 :root {
-  --bg-top: #f8f2e7;
-  --bg-bottom: #dfeee5;
-  --surface: rgba(255, 255, 255, 0.74);
-  --surface-border: rgba(255, 255, 255, 0.45);
-  --text: #4e5a4f;
-  --text-strong: #1d2a22;
-  --accent: #bf6c2f;
-  --code-bg: rgba(19, 36, 28, 0.08);
-  --shadow: 0 28px 80px rgba(19, 36, 28, 0.14);
-  --sans: 'Segoe UI', 'Trebuchet MS', sans-serif;
-  --heading: Georgia, 'Times New Roman', serif;
-  --mono: 'SFMono-Regular', Consolas, monospace;
+  --bg-ink: #13212b;
+  --bg-night: #0f1721;
+  --surface: rgba(251, 247, 239, 0.82);
+  --surface-border: rgba(255, 255, 255, 0.22);
+  --text: #dfe9ea;
+  --text-strong: #0f1e27;
+  --text-soft: rgba(223, 233, 234, 0.74);
+  --accent: #f18f55;
+  --accent-strong: #ffb36d;
+  --accent-deep: #9c4f2b;
+  --danger: #b83232;
+  --shadow: 0 28px 80px rgba(5, 12, 20, 0.26);
+  --sans: 'Manrope', 'Segoe UI', sans-serif;
+  --heading: 'Cormorant Garamond', Georgia, serif;
+  --mono: 'IBM Plex Mono', Consolas, monospace;
   font: 18px/1.6 var(--sans);
   letter-spacing: 0.01em;
   color: var(--text);
   background:
-    radial-gradient(circle at top left, rgba(255, 255, 255, 0.7), transparent 35%),
-    linear-gradient(135deg, var(--bg-top), var(--bg-bottom));
+    radial-gradient(circle at 20% 0%, rgba(241, 143, 85, 0.22), transparent 28%),
+    radial-gradient(circle at 100% 10%, rgba(92, 141, 137, 0.26), transparent 32%),
+    linear-gradient(135deg, var(--bg-night), var(--bg-ink));
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -32,6 +38,10 @@ body {
   min-width: 320px;
   min-height: 100vh;
   color: var(--text);
+  background:
+    radial-gradient(circle at 20% 0%, rgba(241, 143, 85, 0.16), transparent 28%),
+    radial-gradient(circle at 100% 10%, rgba(92, 141, 137, 0.2), transparent 32%),
+    linear-gradient(135deg, var(--bg-night), var(--bg-ink));
 }
 
 a {
@@ -39,7 +49,7 @@ a {
 }
 
 #root {
-  width: min(1120px, calc(100% - 2rem));
+  width: min(1240px, calc(100% - 2rem));
   margin: 0 auto;
   min-height: 100vh;
   padding: 2rem 0 3rem;
@@ -49,17 +59,15 @@ h1,
 h2 {
   margin: 0;
   font-family: var(--heading);
-  color: var(--text-strong);
   line-height: 1.08;
 }
 
 h1 {
-  margin-top: 0.25rem;
-  font-size: clamp(2.75rem, 7vw, 5rem);
+  font-size: clamp(2.9rem, 7vw, 5rem);
 }
 
 h2 {
-  font-size: clamp(1.5rem, 3.8vw, 2.2rem);
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
 }
 
 p {
@@ -70,13 +78,22 @@ code {
   font-family: var(--mono);
 }
 
+button,
+input {
+  font: inherit;
+}
+
+strong {
+  font-weight: 800;
+}
+
 @media (max-width: 640px) {
   :root {
     font-size: 16px;
   }
 
   #root {
-    width: min(100% - 1rem, 1120px);
+    width: min(100% - 1rem, 1240px);
     padding-top: 1rem;
   }
 }

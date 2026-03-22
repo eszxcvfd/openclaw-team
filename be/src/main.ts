@@ -5,11 +5,12 @@ import { NestFactory } from '@nestjs/core';
 import helmet from 'helmet';
 
 import { AppModule } from './app.module';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { SuccessResponseInterceptor } from './common/interceptors/success-response.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.setGlobalPrefix('api');
   app.use(helmet());
   app.enableCors();
   app.useGlobalPipes(
@@ -19,6 +20,8 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
+  app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalInterceptors(new SuccessResponseInterceptor());
 
   const port = Number(process.env.PORT) || 3001;
   await app.listen(port);

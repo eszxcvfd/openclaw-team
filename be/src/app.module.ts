@@ -20,6 +20,7 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { OpenclawModule } from './modules/openclaw/openclaw.module';
 import { ToolGatewayModule } from './modules/tool-gateway/tool-gateway.module';
 import { TrainingModule } from './modules/training/training.module';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { TrainingModule } from './modules/training/training.module';
     AnalyticsModule,
     DocumentsModule,
     JobsModule,
+    UsersModule,
   ],
 })
 export class AppModule {}

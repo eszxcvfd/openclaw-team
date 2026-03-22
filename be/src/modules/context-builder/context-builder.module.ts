@@ -1,4 +1,8 @@
 import { Module } from '@nestjs/common';
+import { ContextBuilderService } from './context-builder.service';
 
-@Module({})
+@Module({
+  providers: [ContextBuilderService],
+  exports: [ContextBuilderService],
+})
 export class ContextBuilderModule {}
