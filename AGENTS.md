@@ -1,4 +1,5 @@
 # AGENTS.md
+
 ## Hướng dẫn Agent cho Toàn bộ Hệ thống OpenClaw
 
 > File này là tài liệu gốc cho **coding agent** và **AI agent** khi làm việc với bất kỳ phần nào của hệ thống.
@@ -9,6 +10,7 @@
 ## 1. Mục tiêu và phạm vi
 
 File này định nghĩa:
+
 - Kiến trúc tổng thể bắt buộc của hệ thống
 - Vai trò và trách nhiệm từng layer
 - Các quy tắc bắt buộc (RULE) không được phá vỡ
@@ -50,14 +52,14 @@ User ← FE ← BE ←←←←←←←←←← OpenClaw ←←←←←←←
 
 ### Vai trò từng phần
 
-| Layer | Vai trò chính | Không được làm |
-|-------|---------------|----------------|
-| **Frontend** | UI chat, gọi external API backend, hiển thị kết quả | Gọi OpenClaw trực tiếp, giữ logic permission, gọi DB |
-| **Backend** | Auth, RBAC, agent routing, context building, internal APIs, audit | Để FE gọi OpenClaw, để OpenClaw gọi DB trực tiếp |
-| **OpenClaw** | Reasoning, gọi tool được cấp phép, tổng hợp câu trả lời | Login user, tự suy quyền, cầm token user thật, gọi DB |
-| **Tool Layer** | Chuẩn hóa cách agent gọi nghiệp vụ, map sang internal API | Bypass backend API, tự query DB |
-| **Internal API** | Cổng chính agent lấy dữ liệu thật, query DB, kiểm tra permission | Mở trần không auth, bypass permission check |
-| **DB/Data** | Source of truth cho toàn hệ thống | — |
+| Layer            | Vai trò chính                                                     | Không được làm                                        |
+| ---------------- | ----------------------------------------------------------------- | ----------------------------------------------------- |
+| **Frontend**     | UI chat, gọi external API backend, hiển thị kết quả               | Gọi OpenClaw trực tiếp, giữ logic permission, gọi DB  |
+| **Backend**      | Auth, RBAC, agent routing, context building, internal APIs, audit | Để FE gọi OpenClaw, để OpenClaw gọi DB trực tiếp      |
+| **OpenClaw**     | Reasoning, gọi tool được cấp phép, tổng hợp câu trả lời           | Login user, tự suy quyền, cầm token user thật, gọi DB |
+| **Tool Layer**   | Chuẩn hóa cách agent gọi nghiệp vụ, map sang internal API         | Bypass backend API, tự query DB                       |
+| **Internal API** | Cổng chính agent lấy dữ liệu thật, query DB, kiểm tra permission  | Mở trần không auth, bypass permission check           |
+| **DB/Data**      | Source of truth cho toàn hệ thống                                 | —                                                     |
 
 ---
 
@@ -66,6 +68,7 @@ User ← FE ← BE ←←←←←←←←←← OpenClaw ←←←←←←←
 ### RULE-01 — Frontend không gọi OpenClaw trực tiếp
 
 Luồng đúng duy nhất:
+
 ```
 FE → BE (external API) → BE gọi OpenClaw
 ```
@@ -77,6 +80,7 @@ Không có route nào để FE gọi `/openclaw/*` hay bất kỳ endpoint OpenC
 ### RULE-02 — Backend là security boundary chính của toàn hệ thống
 
 Backend là nơi giữ và enforce tất cả:
+
 - Xác thực user (auth)
 - Phân quyền theo role (RBAC)
 - Kiểm soát agent nào user được dùng
@@ -90,12 +94,14 @@ Backend là nơi giữ và enforce tất cả:
 ### RULE-03 — OpenClaw chỉ là AI worker
 
 OpenClaw **chỉ được phép**:
+
 - Đọc context backend cung cấp
 - Reasoning và lập kế hoạch gọi tool
 - Gọi tool trong danh sách được cấp phép
 - Tổng hợp kết quả và viết câu trả lời
 
 OpenClaw **không được phép**:
+
 - Tự xử lý login doanh nghiệp
 - Tự suy ra hay tự cấp quyền nghiệp vụ
 - Cầm token user thật (user_access_token)
@@ -107,6 +113,7 @@ OpenClaw **không được phép**:
 ### RULE-04 — Agent không query DB trực tiếp
 
 Luồng đúng bắt buộc:
+
 ```
 Agent → Tool → Internal API Backend → Service → Repository → DB
 ```
@@ -118,6 +125,7 @@ Mọi dữ liệu nghiệp vụ phải đi qua ít nhất 3 lớp trung gian tr�
 ### RULE-05 — Không dùng token user thật cho OpenClaw
 
 Luồng token đúng:
+
 1. FE gửi `user_access_token` cho BE
 2. BE verify token → biết user là ai
 3. BE tạo `internal_scoped_token` ngắn hạn (JWT riêng, secret riêng)
@@ -125,6 +133,7 @@ Luồng token đúng:
 5. OpenClaw dùng token đó khi gọi `/internal/tools/*`
 
 `internal_scoped_token` bắt buộc phải có:
+
 ```json
 {
   "agent": "onboarding_assistant",
@@ -138,6 +147,7 @@ Luồng token đúng:
 ```
 
 Cấm dùng:
+
 - Token user thật cho OpenClaw
 - Một token env cố định (`INTERNAL_AGENT_TOKEN`) chung cho mọi request
 
@@ -173,6 +183,7 @@ Cấm dùng:
 ### RULE-09 — Mọi request quan trọng phải có trace id
 
 Tất cả request từ FE → BE → OpenClaw → Tool → Internal API phải mang:
+
 - `traceId` (correlation id xuyên suốt)
 - `conversationId`
 - `userId`
@@ -189,17 +200,28 @@ Internal API   → /internal/tools/onboarding/* /internal/tools/training/* /inte
 ```
 
 Hai loại route này phải hoàn toàn tách biệt về:
+
 - Namespace / prefix
 - Guard / middleware xác thực
 - Token loại được chấp nhận
 
 ---
 
+### RULE-11 — Agent team bắt buộc phải sử dụng các sub agent để xử lý công việc
+
+Agent chính phải lập kế hoạch phân chia công việc và gọi các sub-agent phù hợp để thực thi.
+Agent chính không được tự xử lý toàn bộ công việc, mà chỉ chịu trách nhiệm:
+
+1. Lập kế hoạch phân công sub-agent
+2. Điều phối quá trình thực thi
+3. Kiểm tra và tổng hợp kết quả cuối cùng
+
 ## 4. Layer chi tiết
 
 ### 4.1 Frontend Layer (`fe/`)
 
 **Được làm:**
+
 - Login UI / logout
 - Chat UI (gửi message, hiển thị hội thoại)
 - Gọi external API của backend bằng `user_access_token`
@@ -207,6 +229,7 @@ Hai loại route này phải hoàn toàn tách biệt về:
 - Hiển thị lịch sử hội thoại
 
 **Không được làm:**
+
 - Gọi OpenClaw trực tiếp
 - Giữ logic permission chính
 - Gọi internal tool API
@@ -221,21 +244,21 @@ Backend là **control plane chính** của toàn hệ thống.
 
 **Các module bắt buộc phải có:**
 
-| Module | Trách nhiệm |
-|--------|-------------|
-| `auth` | Login, logout, refresh token, verify JWT, session management |
-| `iam` | Users, roles, permissions, role_permissions, user_roles, user_agent_access |
-| `chat` | Conversations, messages, session metadata, chat entry point |
-| `agent-router` | Route request sang đúng agent group, kiểm tra user có quyền dùng agent |
-| `context-builder` | Build user context, session context, allowed resources, sinh USER.md |
-| `tool-gateway` | Đăng ký tool, map tool → service, kiểm tra tool access theo agent, log tool calls |
-| `openclaw-client` | Gọi OpenClaw, truyền context + token, nhận response |
-| `onboarding` | Business services: plans, tasks, FAQ, contacts, policies |
-| `training` | Business services: skills, courses, learning path, quiz, recommendations |
-| `analytics` | Business services: progress, feedback, reports, KPI snapshots |
-| `documents` | Document metadata, document permissions |
-| `audit` | Audit trail, security logs, tool usage logs, agent routing logs |
-| `jobs` | Background jobs: generate report, analyze feedback batch, cleanup |
+| Module            | Trách nhiệm                                                                       |
+| ----------------- | --------------------------------------------------------------------------------- |
+| `auth`            | Login, logout, refresh token, verify JWT, session management                      |
+| `iam`             | Users, roles, permissions, role_permissions, user_roles, user_agent_access        |
+| `chat`            | Conversations, messages, session metadata, chat entry point                       |
+| `agent-router`    | Route request sang đúng agent group, kiểm tra user có quyền dùng agent            |
+| `context-builder` | Build user context, session context, allowed resources, sinh USER.md              |
+| `tool-gateway`    | Đăng ký tool, map tool → service, kiểm tra tool access theo agent, log tool calls |
+| `openclaw-client` | Gọi OpenClaw, truyền context + token, nhận response                               |
+| `onboarding`      | Business services: plans, tasks, FAQ, contacts, policies                          |
+| `training`        | Business services: skills, courses, learning path, quiz, recommendations          |
+| `analytics`       | Business services: progress, feedback, reports, KPI snapshots                     |
+| `documents`       | Document metadata, document permissions                                           |
+| `audit`           | Audit trail, security logs, tool usage logs, agent routing logs                   |
+| `jobs`            | Background jobs: generate report, analyze feedback batch, cleanup                 |
 
 **Tầng kiến trúc nội bộ backend:**
 
@@ -249,6 +272,7 @@ Integration Layer   → OpenClaw, Redis, file system, queue
 ```
 
 **Quy tắc coding backend bắt buộc:**
+
 - Controller chỉ validate request cơ bản, gọi service, trả response
 - Không query DB trực tiếp từ controller
 - Không hardcode permission trong controller
@@ -261,12 +285,14 @@ Integration Layer   → OpenClaw, Redis, file system, queue
 OpenClaw là **AI worker engine** được backend điều phối.
 
 **Input từ backend:**
+
 - `agentName`: tên agent group cần chạy
 - `message`: message của user
 - `context`: user context, session context, allowed resources
 - `internalToken`: `internal_scoped_token` để gọi internal tool API
 
 **Output trả về backend:**
+
 - Final answer (text)
 - Tool calls đã thực hiện
 - Metadata phiên
@@ -293,6 +319,7 @@ training_analytics_agent
 ```
 
 **Quy tắc agent trong OpenClaw:**
+
 - Mỗi agent đọc system prompt + context từ backend
 - Mỗi agent chỉ được gọi tool trong allowlist đã được cấp
 - Không có agent nào được gọi tool ngoài nhóm nghiệp vụ của mình
@@ -305,6 +332,7 @@ training_analytics_agent
 Tool là lớp trung gian giữa agent và Backend Internal API.
 
 **Cách Tool hoạt động:**
+
 ```
 Agent chọn Tool
   → Tool nhận tham số
@@ -315,30 +343,30 @@ Agent chọn Tool
 
 **Mapping Tool → Internal API:**
 
-| Tool name | Internal API endpoint |
-|-----------|----------------------|
-| `get_my_profile` | `GET /internal/tools/onboarding/me/profile` |
-| `get_my_onboarding` | `GET /internal/tools/onboarding/me/onboarding` |
-| `get_my_checklist` | `GET /internal/tools/onboarding/me/checklist` |
-| `get_onboarding_faq` | `GET /internal/tools/onboarding/faq` |
-| `get_support_contacts` | `GET /internal/tools/onboarding/contacts/support` |
-| `complete_checklist_task` | `POST /internal/tools/onboarding/me/checklist/:taskId/complete` |
-| `get_my_skills` | `GET /internal/tools/training/me/skills` |
-| `get_my_courses` | `GET /internal/tools/training/me/courses` |
-| `get_my_learning_path` | `GET /internal/tools/training/me/learning-path` |
-| `get_training_recommendations` | `GET /internal/tools/training/me/training-recommendations` |
-| `generate_learning_path` | `POST /internal/tools/training/me/learning-path/generate` |
-| `generate_quiz` | `POST /internal/tools/training/quiz/generate` |
-| `submit_quiz` | `POST /internal/tools/training/quiz/submit` |
-| `get_quiz_result` | `GET /internal/tools/training/quiz/:id/result` |
-| `get_training_overview` | `GET /internal/tools/analytics/training/overview` |
-| `get_training_progress` | `GET /internal/tools/analytics/training/progress` |
-| `get_department_training_analytics` | `GET /internal/tools/analytics/training/department` |
-| `get_training_feedback` | `GET /internal/tools/analytics/training/feedback` |
-| `analyze_training_feedback` | `POST /internal/tools/analytics/training/feedback/analyze` |
-| `generate_training_report` | `POST /internal/tools/analytics/training/reports/generate` |
-| `list_training_reports` | `GET /internal/tools/analytics/training/reports` |
-| `get_training_report_detail` | `GET /internal/tools/analytics/training/reports/:id` |
+| Tool name                           | Internal API endpoint                                           |
+| ----------------------------------- | --------------------------------------------------------------- |
+| `get_my_profile`                    | `GET /internal/tools/onboarding/me/profile`                     |
+| `get_my_onboarding`                 | `GET /internal/tools/onboarding/me/onboarding`                  |
+| `get_my_checklist`                  | `GET /internal/tools/onboarding/me/checklist`                   |
+| `get_onboarding_faq`                | `GET /internal/tools/onboarding/faq`                            |
+| `get_support_contacts`              | `GET /internal/tools/onboarding/contacts/support`               |
+| `complete_checklist_task`           | `POST /internal/tools/onboarding/me/checklist/:taskId/complete` |
+| `get_my_skills`                     | `GET /internal/tools/training/me/skills`                        |
+| `get_my_courses`                    | `GET /internal/tools/training/me/courses`                       |
+| `get_my_learning_path`              | `GET /internal/tools/training/me/learning-path`                 |
+| `get_training_recommendations`      | `GET /internal/tools/training/me/training-recommendations`      |
+| `generate_learning_path`            | `POST /internal/tools/training/me/learning-path/generate`       |
+| `generate_quiz`                     | `POST /internal/tools/training/quiz/generate`                   |
+| `submit_quiz`                       | `POST /internal/tools/training/quiz/submit`                     |
+| `get_quiz_result`                   | `GET /internal/tools/training/quiz/:id/result`                  |
+| `get_training_overview`             | `GET /internal/tools/analytics/training/overview`               |
+| `get_training_progress`             | `GET /internal/tools/analytics/training/progress`               |
+| `get_department_training_analytics` | `GET /internal/tools/analytics/training/department`             |
+| `get_training_feedback`             | `GET /internal/tools/analytics/training/feedback`               |
+| `analyze_training_feedback`         | `POST /internal/tools/analytics/training/feedback/analyze`      |
+| `generate_training_report`          | `POST /internal/tools/analytics/training/reports/generate`      |
+| `list_training_reports`             | `GET /internal/tools/analytics/training/reports`                |
+| `get_training_report_detail`        | `GET /internal/tools/analytics/training/reports/:id`            |
 
 ---
 
@@ -351,38 +379,46 @@ Gồm 3 phần:
 Nhóm bảng chính trong schema `app`:
 
 **Core / Auth / RBAC:**
+
 - `users`, `departments`, `positions`
 - `roles`, `permissions`, `role_permissions`, `user_roles`
 - `auth_sessions`
 
 **Agent / Tool / API Access Control:**
+
 - `agent_groups` (seed: `onboarding`, `learning_training`, `training_analytics`)
 - `agent_submodules`, `user_agent_access`
 - `backend_api_catalog`, `tools`, `agent_group_tools`
 - `service_tokens`, `tool_call_logs`
 
 **Document / Knowledge / Context:**
+
 - `documents`, `document_permissions`
 - `user_contexts`, `session_contexts`, `generated_artifacts`
 
 **Chat / Conversation:**
+
 - `conversations`, `messages`
 
 **Onboarding:**
+
 - `onboarding_plans`, `onboarding_tasks`, `user_onboarding_tasks`
 - `faq_items`, `contacts_directory`, `company_policies`
 
 **Learning / Training:**
+
 - `skills`, `user_skills`, `role_skill_requirements`
 - `courses`, `course_skills`, `course_prerequisites`, `user_courses`
 - `learning_paths`, `learning_path_items`, `user_learning_paths`
 - `quiz_templates`, `quiz_questions`, `quiz_attempts`
 
 **Analytics / Feedback / Reporting:**
+
 - `training_sessions`, `training_attendance`
 - `training_feedback`, `reports`, `analytics_snapshots`
 
 **Đặc điểm schema:**
+
 - Tất cả bảng nằm trong schema `app`
 - `UUID` là khóa chính chuẩn
 - Email dùng `CITEXT` (không phân biệt hoa thường)
@@ -560,16 +596,19 @@ generated/
 ### 6.1 onboarding_assistant
 
 **Input thường gặp:**
+
 - Hỏi về quy trình ngày đầu, checklist còn thiếu
 - Hỏi policy nội bộ, người liên hệ hỗ trợ
 - Hỏi FAQ onboarding
 
 **Nguồn dữ liệu agent được phép truy cập:**
+
 - `onboarding_plans`, `onboarding_tasks`, `user_onboarding_tasks`
 - `faq_items`, `contacts_directory`, `company_policies`
 - `data/onboarding/*`
 
 **Tool được cấp:**
+
 - `get_my_profile`
 - `get_my_onboarding`
 - `get_my_checklist`
@@ -578,6 +617,7 @@ generated/
 - `complete_checklist_task`
 
 **Output:**
+
 - Danh sách task chưa hoàn thành
 - Hướng dẫn từng bước onboarding
 - Câu trả lời FAQ
@@ -588,12 +628,14 @@ generated/
 ### 6.2 learning_training_agent
 
 **Input thường gặp:**
+
 - Nên học khóa nào trước?
 - Lộ trình học của tôi là gì?
 - Tạo quiz cho kỹ năng X
 - Xem tiến độ học cá nhân
 
 **Nguồn dữ liệu agent được phép truy cập:**
+
 - `skills`, `user_skills`, `role_skill_requirements`
 - `courses`, `course_skills`, `course_prerequisites`, `user_courses`
 - `learning_paths`, `learning_path_items`, `user_learning_paths`
@@ -601,6 +643,7 @@ generated/
 - `data/training/*`
 
 **Tool được cấp:**
+
 - `get_my_skills`
 - `get_my_courses`
 - `get_my_learning_path`
@@ -611,6 +654,7 @@ generated/
 - `get_quiz_result`
 
 **Output:**
+
 - Khóa học đề xuất có gap analysis
 - Learning path cá nhân hóa
 - Bài quiz theo skill hoặc course
@@ -621,18 +665,21 @@ generated/
 ### 6.3 training_analytics_agent
 
 **Input thường gặp:**
+
 - Báo cáo tiến độ đào tạo toàn công ty / phòng ban
 - Phân tích feedback đào tạo
 - Xem KPI đào tạo tháng này
 - Sinh file báo cáo đào tạo
 
 **Nguồn dữ liệu agent được phép truy cập:**
+
 - `user_courses`, `quiz_attempts`
 - `training_sessions`, `training_attendance`
 - `training_feedback`, `reports`, `analytics_snapshots`
 - `data/analytics/*`
 
 **Tool được cấp:**
+
 - `get_training_overview`
 - `get_training_progress`
 - `get_department_training_analytics`
@@ -643,12 +690,14 @@ generated/
 - `get_training_report_detail`
 
 **Output:**
+
 - Tổng quan đào tạo (completion rate, avg score)
 - Báo cáo theo phòng ban
 - Sentiment feedback có phân tích
 - File report PDF/Markdown
 
 **Lưu ý phân quyền:**
+
 - `training_analytics_agent` là agent dành cho HR/Manager
 - Không phải mọi user đều được dùng agent này
 - Backend phải kiểm tra `user_agent_access` trước khi route sang agent này
@@ -660,6 +709,7 @@ generated/
 ### Nguyên tắc 2 lớp chặn
 
 Một tool call chỉ thành công khi ĐỒng thời:
+
 1. **OpenClaw** cho phép agent dùng tool đó (allowlist trong OpenClaw)
 2. **Backend Internal API** xác nhận agent + user + scope hợp lệ
 
@@ -667,20 +717,22 @@ Nếu một trong hai layer không pass → tool call bị từ chối.
 
 ### Ai quyết định gì
 
-| Ai | Quyết định |
-|----|-----------|
-| **Backend** | User được dùng agent nào, document nào, thao tác gì |
-| **OpenClaw** | Agent được gọi tool nào trong phiên này |
+| Ai                       | Quyết định                                                          |
+| ------------------------ | ------------------------------------------------------------------- |
+| **Backend**              | User được dùng agent nào, document nào, thao tác gì                 |
+| **OpenClaw**             | Agent được gọi tool nào trong phiên này                             |
 | **Backend Internal API** | Tool request có hợp lệ không (token, scope, agent, user, ownership) |
 
 ### Auth headers chuẩn
 
 **External API (FE → BE):**
+
 ```http
 Authorization: Bearer <user_access_token>
 ```
 
 **Internal Tool API (OpenClaw → BE):**
+
 ```http
 Authorization: Bearer <internal_scoped_token>
 X-Agent-Name: onboarding_assistant
@@ -805,6 +857,7 @@ POST   /api/training/reports/generate
 ### Response format chuẩn
 
 **Success:**
+
 ```json
 {
   "success": true,
@@ -814,6 +867,7 @@ POST   /api/training/reports/generate
 ```
 
 **Error:**
+
 ```json
 {
   "success": false,
@@ -826,6 +880,7 @@ POST   /api/training/reports/generate
 ```
 
 **Error codes:**
+
 - `UNAUTHORIZED` — token không hợp lệ hoặc hết hạn
 - `FORBIDDEN` — không có quyền
 - `VALIDATION_ERROR` — request data không hợp lệ
@@ -841,19 +896,20 @@ POST   /api/training/reports/generate
 
 Tất cả request quan trọng phải log được:
 
-| Thông tin | Bắt buộc |
-|-----------|----------|
-| `traceId` | ✅ |
-| `userId` | ✅ |
-| `conversationId` | ✅ |
-| `agentGroup` | ✅ |
-| `toolName` | ✅ nếu là tool call |
-| `endpoint` | ✅ |
-| `statusCode` | ✅ |
-| `duration` | ✅ |
-| `error` | ✅ nếu có lỗi |
+| Thông tin        | Bắt buộc            |
+| ---------------- | ------------------- |
+| `traceId`        | ✅                  |
+| `userId`         | ✅                  |
+| `conversationId` | ✅                  |
+| `agentGroup`     | ✅                  |
+| `toolName`       | ✅ nếu là tool call |
+| `endpoint`       | ✅                  |
+| `statusCode`     | ✅                  |
+| `duration`       | ✅                  |
+| `error`          | ✅ nếu có lỗi       |
 
 **Bắt buộc phải log các sự kiện:**
+
 - Chat request / response
 - Agent routing decision
 - Tool call request / response / error
@@ -865,6 +921,7 @@ Tất cả request quan trọng phải log được:
 - Timeout / retry
 
 **Audit log bắt buộc phải có:**
+
 - `actor` (userId)
 - `action` (verb: chat, call_tool, generate_report...)
 - `resource` (endpoint, agent, tool, document)
@@ -877,6 +934,7 @@ Tất cả request quan trọng phải log được:
 ## 11. Công nghệ đề xuất cho từng phần
 
 ### Backend (`be/`)
+
 - Framework: **NestJS** (TypeScript)
 - ORM: **Prisma**
 - Database: **PostgreSQL**
@@ -885,15 +943,18 @@ Tất cả request quan trọng phải log được:
 - Validation: **class-validator**
 
 ### Frontend (`fe/`)
+
 - Framework theo lựa chọn team
 - HTTP client: axios hoặc fetch
 - State management: theo framework
 
 ### OpenClaw (`openclaw/`)
+
 - Runtime: theo OpenClaw SDK/platform
 - Agent: 3 agent lớn, mỗi agent có system prompt + tool allowlist riêng
 
 ### Hạ tầng
+
 - Containerization: **Docker + docker-compose**
 - Giai đoạn đầu: 3 server (FE+BE, OpenClaw, PostgreSQL+Redis)
 
@@ -926,6 +987,7 @@ Tất cả request quan trọng phải log được:
 **Backend là cổng xác thực + phân quyền + điều phối. OpenClaw là bộ não AI. Dữ liệu thật nằm ở DB, data folder và backend APIs.**
 
 Hệ thống ổn định khi:
+
 - Không cho user đi thẳng vào OpenClaw
 - Không cho agent gọi mọi API
 - Không cho agent query DB trực tiếp
@@ -935,4 +997,4 @@ Hệ thống ổn định khi:
 
 ---
 
-*Tài liệu này được cập nhật cùng lúc với `system-workflow-architecture.md` và `be/AGENTS.md`. Khi có thay đổi kiến trúc, phải cập nhật cả 3 tài liệu.*
+_Tài liệu này được cập nhật cùng lúc với `system-workflow-architecture.md` và `be/AGENTS.md`. Khi có thay đổi kiến trúc, phải cập nhật cả 3 tài liệu._

@@ -9,6 +9,7 @@ import { redisConfig } from './config/redis.config';
 import { PrismaModule } from './infra/prisma/prisma.module';
 import { AgentRouterModule } from './modules/agent-router/agent-router.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { ContextBuilderModule } from './modules/context-builder/context-builder.module';
@@ -31,6 +32,7 @@ import { UsersModule } from './modules/users/users.module';
     PrismaModule,
     HealthModule,
     AuthModule,
+    AuditModule,
     IamModule,
     ChatModule,
     AgentRouterModule,

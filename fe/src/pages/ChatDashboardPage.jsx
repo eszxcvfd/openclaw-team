@@ -2,7 +2,8 @@ import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../store/authStore'
-import { chatService } from '../services/chatService'
+import { chatService, normalizeChatMessage } from '../services/chatService'
+import { onboardingService } from '../services/onboardingService'
 
 const SUGGESTED_PROMPTS = [
   'Toi phai lam gi vao ngay dau?',
@@ -24,6 +25,210 @@ function formatConversationLabel(conversation, fallbackMessages = []) {
   return `Conversation ${conversation.id.slice(0, 8)}`
 }
 
+function getChecklistStatusLabel(status) {
+  return status === 'completed' ? 'Hoan thanh' : 'Dang cho'
+}
+
+function getChecklistButtonLabel(isCompleted, isSubmitting) {
+  if (isSubmitting) {
+    return 'Dang cap nhat...'
+  }
+
+  return isCompleted ? 'Da hoan thanh' : 'Danh dau hoan thanh'
+}
+
+function ChecklistCard({ payload, completingTaskIds, taskErrors, onCompleteTask }) {
+  return (
+    <div className="chat-ui-card chat-ui-card--checklist">
+      <div className="chat-ui-card__header">
+        <div>
+          <p className="section-tag chat-ui-card__eyebrow">Onboarding checklist</p>
+          <h3 className="chat-ui-card__title">{payload.title}</h3>
+        </div>
+        <span className="chat-ui-card__count">{payload.items.length} muc</span>
+      </div>
+
+      {payload.description ? <p className="chat-ui-card__copy">{payload.description}</p> : null}
+
+      <div className="chat-checklist-grid">
+        {payload.items.map((task, index) => {
+          const isCompleted = task.status === 'completed'
+          const isSubmitting = Boolean(completingTaskIds[task.taskId])
+          const taskError = taskErrors[task.taskId]
+
+          return (
+            <article
+              key={task.taskId}
+              className={
+                isCompleted
+                  ? 'chat-checklist-item chat-checklist-item--completed'
+                  : 'chat-checklist-item'
+              }
+            >
+              <div className="chat-checklist-item__header">
+                <span className="chat-checklist-item__order">
+                  {(task.orderNo ?? index + 1).toString().padStart(2, '0')}
+                </span>
+                <span
+                  className={
+                    isCompleted
+                      ? 'chat-status-pill chat-status-pill--success'
+                      : 'chat-status-pill'
+                  }
+                >
+                  {getChecklistStatusLabel(task.status)}
+                </span>
+              </div>
+
+              <div className="chat-checklist-item__body">
+                <div>
+                  <h4 className="chat-checklist-item__title">{task.taskName}</h4>
+                  {task.description ? (
+                    <p className="chat-checklist-item__copy">{task.description}</p>
+                  ) : null}
+                </div>
+
+                <div className="chat-meta-pill-row">
+                  {task.dueDay ? <span className="chat-meta-pill">Due: {task.dueDay}</span> : null}
+                  {task.required ? <span className="chat-meta-pill">Bat buoc</span> : null}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="chat-task-action"
+                onClick={() => onCompleteTask(task.taskId)}
+                disabled={isCompleted || isSubmitting}
+              >
+                {getChecklistButtonLabel(isCompleted, isSubmitting)}
+              </button>
+
+              {taskError ? <p className="chat-inline-error">{taskError}</p> : null}
+            </article>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function SupportContactsCard({ payload }) {
+  return (
+    <div className="chat-ui-card chat-ui-card--contacts">
+      <div className="chat-ui-card__header">
+        <div>
+          <p className="section-tag chat-ui-card__eyebrow">Support contacts</p>
+          <h3 className="chat-ui-card__title">{payload.title}</h3>
+        </div>
+        <span className="chat-ui-card__count">{payload.items.length} lien he</span>
+      </div>
+
+      {payload.description ? <p className="chat-ui-card__copy">{payload.description}</p> : null}
+
+      <div className="chat-contact-grid">
+        {payload.items.map((contact) => (
+          <article key={`${contact.name}-${contact.email}-${contact.phone}`} className="chat-contact-card">
+            <div className="chat-contact-card__header">
+              <div>
+                <h4 className="chat-contact-card__name">{contact.name}</h4>
+                <p className="chat-contact-card__meta">
+                  {[contact.roleTitle, contact.departmentName].filter(Boolean).join(' • ') || 'Support team'}
+                </p>
+              </div>
+              {contact.supportType ? <span className="chat-meta-pill">{contact.supportType}</span> : null}
+            </div>
+
+            <div className="chat-contact-card__details">
+              {contact.email ? (
+                <a className="chat-contact-link" href={`mailto:${contact.email}`}>
+                  {contact.email}
+                </a>
+              ) : null}
+              {contact.phone ? (
+                <a className="chat-contact-link" href={`tel:${contact.phone}`}>
+                  {contact.phone}
+                </a>
+              ) : null}
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function StructuredAssistantContent({ message, completingTaskIds, taskErrors, onCompleteTask, isPending }) {
+  const hasText = Boolean(message.content?.trim())
+  const fallbackText = !hasText && isPending ? '...' : message.content
+
+  return (
+    <>
+      {hasText || fallbackText ? <p className="chat-message-text">{fallbackText}</p> : null}
+
+      {message.uiPayload?.type === 'checklist' ? (
+        <ChecklistCard
+          payload={message.uiPayload}
+          completingTaskIds={completingTaskIds}
+          taskErrors={taskErrors}
+          onCompleteTask={onCompleteTask}
+        />
+      ) : null}
+
+      {message.uiPayload?.type === 'support-contacts' ? (
+        <SupportContactsCard payload={message.uiPayload} />
+      ) : null}
+    </>
+  )
+}
+
+function ChatMessageBubble({
+  message,
+  index,
+  isBusy,
+  messagesLength,
+  completingTaskIds,
+  taskErrors,
+  onCompleteTask,
+}) {
+  const isUser = message.sender_type === 'user'
+  const isAssistant = message.sender_type === 'assistant'
+  const isPending = isBusy && index === messagesLength - 1
+  const rowClassName = isUser ? 'chat-message-row chat-message-row--user' : 'chat-message-row'
+  const bubbleClassName = isUser
+    ? 'chat-message-bubble chat-message-bubble--user'
+    : message.sender_type === 'system'
+      ? 'chat-message-bubble chat-message-bubble--system'
+      : 'chat-message-bubble'
+
+  return (
+    <div className={rowClassName}>
+      <div className={bubbleClassName}>
+        {isAssistant ? (
+          <StructuredAssistantContent
+            message={message}
+            completingTaskIds={completingTaskIds}
+            taskErrors={taskErrors}
+            onCompleteTask={onCompleteTask}
+            isPending={isPending}
+          />
+        ) : (
+          <p className="chat-message-text">
+            {message.content || (isPending ? '...' : '')}
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function getTaskCompletionError(error) {
+  return (
+    error?.response?.data?.error?.message ??
+    error?.message ??
+    'Khong the cap nhat checklist luc nay. Vui long thu lai.'
+  )
+}
+
 export function ChatDashboardPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -38,6 +243,8 @@ export function ChatDashboardPage() {
   const [currentConversationId, setCurrentConversationId] = useState(null)
   const [sessionKey, setSessionKey] = useState(`session-${user?.id}-${Date.now()}`)
   const [queuedPrompt, setQueuedPrompt] = useState(null)
+  const [completingTaskIds, setCompletingTaskIds] = useState({})
+  const [taskErrors, setTaskErrors] = useState({})
   const messagesEndRef = useRef(null)
 
   const submitQueuedPrompt = useEffectEvent(async (prompt) => {
@@ -92,6 +299,8 @@ export function ChatDashboardPage() {
     setInputValue('')
     setQueuedPrompt(null)
     setCurrentConversationId(null)
+    setTaskErrors({})
+    setCompletingTaskIds({})
     setSessionKey(`session-${user.id}-${Date.now()}`)
   }
 
@@ -99,6 +308,8 @@ export function ChatDashboardPage() {
     setIsStreaming(false)
     setInputValue('')
     setMessages([])
+    setTaskErrors({})
+    setCompletingTaskIds({})
     setCurrentConversationId(conversation.id)
     setSessionKey(conversation.session_key)
   }
@@ -110,6 +321,71 @@ export function ChatDashboardPage() {
 
     setInputValue(prompt)
     setQueuedPrompt(prompt)
+  }
+
+  function updateMessagesForTask(taskId, nextStatus) {
+    const applyStatusUpdate = (existingMessages = []) =>
+      existingMessages.map((message) => {
+        if (message.uiPayload?.type !== 'checklist') {
+          return message
+        }
+
+        const hasTask = message.uiPayload.items.some((item) => item.taskId === taskId)
+
+        if (!hasTask) {
+          return message
+        }
+
+        return {
+          ...message,
+          uiPayload: {
+            ...message.uiPayload,
+            items: message.uiPayload.items.map((item) =>
+              item.taskId === taskId
+                ? {
+                    ...item,
+                    status: nextStatus,
+                  }
+                : item,
+            ),
+          },
+        }
+      })
+
+    setMessages((previousMessages) => applyStatusUpdate(previousMessages))
+    queryClient.setQueriesData({ queryKey: ['conversation-messages'] }, applyStatusUpdate)
+  }
+
+  async function handleCompleteTask(taskId) {
+    if (completingTaskIds[taskId]) {
+      return
+    }
+
+    setCompletingTaskIds((current) => ({
+      ...current,
+      [taskId]: true,
+    }))
+    setTaskErrors((current) => {
+      const nextErrors = { ...current }
+      delete nextErrors[taskId]
+      return nextErrors
+    })
+
+    try {
+      await onboardingService.completeChecklistTask(taskId)
+      updateMessagesForTask(taskId, 'completed')
+    } catch (error) {
+      setTaskErrors((current) => ({
+        ...current,
+        [taskId]: getTaskCompletionError(error),
+      }))
+    } finally {
+      setCompletingTaskIds((current) => {
+        const nextPending = { ...current }
+        delete nextPending[taskId]
+        return nextPending
+      })
+    }
   }
 
   async function sendMessage(text) {
@@ -127,21 +403,42 @@ export function ChatDashboardPage() {
     setMessages((prev) => [
       ...prev,
       userMessage,
-      { id: assistantPlaceholderId, sender_type: 'assistant', content: '' },
+      normalizeChatMessage({
+        id: assistantPlaceholderId,
+        sender_type: 'assistant',
+        content: '',
+        rawContent: '',
+        uiPayload: null,
+      }),
     ])
     setIsStreaming(true)
 
     try {
-      await chatService.sendMessageStream(text, sessionKey, (chunk) => {
+      await chatService.sendMessageStream(text, sessionKey, (event) => {
         setMessages((prev) =>
-          prev.map((message) =>
-            message.id === assistantPlaceholderId
-              ? {
-                  ...message,
-                  content: `${message.content || ''}${chunk}`,
-                }
-              : message,
-          ),
+          prev.map((message) => {
+            if (message.id !== assistantPlaceholderId) {
+              return message
+            }
+
+            if (event.type === 'ui-payload') {
+              return normalizeChatMessage({
+                ...message,
+                uiPayload: event.uiPayload,
+              })
+            }
+
+            if (event.type === 'text') {
+              const nextRawContent = `${message.rawContent || message.content || ''}${event.chunk}`
+
+              return normalizeChatMessage({
+                ...message,
+                rawContent: nextRawContent,
+              })
+            }
+
+            return message
+          }),
         )
       })
 
@@ -166,6 +463,8 @@ export function ChatDashboardPage() {
                 ...message,
                 sender_type: 'system',
                 content: 'Co loi xay ra khi gui tin nhan. Vui long thu lai.',
+                rawContent: 'Co loi xay ra khi gui tin nhan. Vui long thu lai.',
+                uiPayload: null,
               }
             : message,
         ),
@@ -276,7 +575,7 @@ export function ChatDashboardPage() {
         </header>
 
         <section
-          className="dashboard-card"
+          className="dashboard-card chat-thread"
           style={{
             flex: 1,
             display: 'flex',
@@ -312,25 +611,16 @@ export function ChatDashboardPage() {
             </div>
           ) : (
             messages.map((message, index) => (
-              <div
+              <ChatMessageBubble
                 key={message.id || index}
-                style={{
-                  alignSelf: message.sender_type === 'user' ? 'flex-end' : 'flex-start',
-                  maxWidth: '80%',
-                  padding: '1rem',
-                  borderRadius: '18px',
-                  backgroundColor:
-                    message.sender_type === 'user' ? 'var(--accent)' : 'rgba(255,255,255,0.06)',
-                  color: message.sender_type === 'user' ? '#fff' : 'var(--text-strong)',
-                  border:
-                    message.sender_type === 'user'
-                      ? 'none'
-                      : '1px solid rgba(255,255,255,0.1)',
-                  whiteSpace: 'pre-wrap',
-                }}
-              >
-                {message.content || (isBusy && index === messages.length - 1 ? '...' : '')}
-              </div>
+                message={message}
+                index={index}
+                isBusy={isBusy}
+                messagesLength={messages.length}
+                completingTaskIds={completingTaskIds}
+                taskErrors={taskErrors}
+                onCompleteTask={handleCompleteTask}
+              />
             ))
           )}
           <div ref={messagesEndRef} />

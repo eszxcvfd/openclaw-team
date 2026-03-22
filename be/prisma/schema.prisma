@@ -564,6 +564,7 @@ model skills {
 
 model tool_call_logs {
   id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  trace_id            String               @db.VarChar(100)
   conversation_id     String?              @db.Uuid
   message_id          String?              @db.Uuid
   agent_group_id      String?              @db.Uuid
@@ -584,6 +585,7 @@ model tool_call_logs {
   tools               tools?               @relation(fields: [tool_id], references: [id], onUpdate: NoAction)
   users               users?               @relation(fields: [user_id], references: [id], onUpdate: NoAction)
 
+  @@index([trace_id], map: "idx_tool_call_logs_trace_id")
   @@index([started_at], map: "idx_tool_call_logs_created")
   @@index([tool_id], map: "idx_tool_call_logs_tool_id")
   @@index([user_id], map: "idx_tool_call_logs_user_id")

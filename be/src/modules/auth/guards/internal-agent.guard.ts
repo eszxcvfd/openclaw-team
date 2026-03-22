@@ -1,19 +1,29 @@
 import {
   CanActivate,
   ExecutionContext,
+  HttpException,
   Injectable,
   UnauthorizedException,
   ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { Request } from 'express';
+
+import { ToolCallLoggerService } from '../../tool-gateway/tool-call-logger.service';
 import { InternalTokenService } from '../internal-token.service';
+import { InternalTokenPayload } from '../internal-token.service';
 import { AGENT_SCOPE_KEY } from '../decorators/agent-scope.decorator';
+
+type InternalToolRequest = Request & {
+  internalAgent?: InternalTokenPayload;
+};
 
 @Injectable()
 export class InternalAgentGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
     private internalTokenService: InternalTokenService,
+    private toolCallLogger: ToolCallLoggerService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -22,45 +32,61 @@ export class InternalAgentGuard implements CanActivate {
       context.getClass(),
     ]);
 
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<InternalToolRequest>();
     const authHeader = request.headers.authorization;
+    const startedAt = new Date();
+    let verifiedPayload: InternalTokenPayload | undefined;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Missing or invalid internal agent token.');
-    }
+    try {
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        throw new UnauthorizedException('Missing or invalid internal agent token.');
+      }
 
-    const token = authHeader.split(' ')[1];
-    const payload = await this.internalTokenService.verifyToken(token);
+      const token = authHeader.split(' ')[1];
+      verifiedPayload = await this.internalTokenService.verifyToken(token);
 
-    if (!payload) {
-      throw new UnauthorizedException('Invalid or expired internal agent token.');
-    }
+      this.assertHeaderMatchesPayload(request, verifiedPayload);
+      this.assertOwnershipMatchesPayload(request, verifiedPayload);
 
-    this.assertHeaderMatchesPayload(request, payload);
-    this.assertOwnershipMatchesPayload(request, payload);
+      request.internalAgent = verifiedPayload;
 
-    // Attach agent payload to request
-    request.internalAgent = payload;
+      if (requiredScopes && requiredScopes.length > 0) {
+        if (!verifiedPayload) {
+          throw new UnauthorizedException('Invalid or expired internal agent token.');
+        }
 
-    // Check scopes if required
-    if (requiredScopes && requiredScopes.length > 0) {
-      const hasAllScopes = requiredScopes.every((scope) =>
-        payload.scope.includes(scope),
-      );
+        const payload = verifiedPayload;
 
-      if (!hasAllScopes) {
-        throw new ForbiddenException({
-          code: 'TOOL_ACCESS_DENIED',
-          message: 'Agent lacks required scope for this tool.',
-          details: {
-            required: requiredScopes,
-            provided: payload.scope,
-          },
+        const hasAllScopes = requiredScopes.every((scope) =>
+          payload.scope.includes(scope),
+        );
+
+        if (!hasAllScopes) {
+          throw new ForbiddenException({
+            code: 'TOOL_ACCESS_DENIED',
+            message: 'Agent lacks required scope for this tool.',
+            details: {
+              required: requiredScopes,
+              provided: payload.scope,
+            },
+          });
+        }
+      }
+
+      return true;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        await this.toolCallLogger.logGuardDenial({
+          request,
+          error,
+          requiredScopes,
+          startedAt,
+          verifiedPayload,
         });
       }
-    }
 
-    return true;
+      throw error;
+    }
   }
 
   private assertHeaderMatchesPayload(

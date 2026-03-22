@@ -1,6 +1,6 @@
 # Story 3.1: Support Directory & FAQ Internal API (Cầu nối Kiến thức)
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -17,31 +17,31 @@ so that the AI Engine can query this ground-truth data cleanly using its Tool Ca
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Scaffold onboarding internal read endpoints in the backend module (AC: 1, 2)
-  - [ ] Update `be/src/modules/onboarding/onboarding.module.ts` to register the onboarding controller/service and import `AuthModule` so `InternalAgentGuard` is available.
-  - [ ] Create an internal controller under `be/src/modules/onboarding/` with route prefix `internal/tools/onboarding`.
-  - [ ] Expose `GET /internal/tools/onboarding/faq` and `GET /internal/tools/onboarding/contacts/support` only; do not mix this story with external `/api/*` routes.
-  - [ ] Protect both endpoints with `@UseGuards(InternalAgentGuard)` and `@AgentScope('read:onboarding')`.
+- [x] Task 1: Scaffold onboarding internal read endpoints in the backend module (AC: 1, 2)
+  - [x] Update `be/src/modules/onboarding/onboarding.module.ts` to register the onboarding controller/service and import `AuthModule` so `InternalAgentGuard` is available.
+  - [x] Create an internal controller under `be/src/modules/onboarding/` with route prefix `internal/tools/onboarding`.
+  - [x] Expose `GET /internal/tools/onboarding/faq` and `GET /internal/tools/onboarding/contacts/support` only; do not mix this story with external `/api/*` routes.
+  - [x] Protect both endpoints with `@UseGuards(InternalAgentGuard)` and `@AgentScope('read:onboarding')`.
 
-- [ ] Task 2: Implement onboarding read services backed by Prisma (AC: 3, 4)
-  - [ ] Create service methods that query `faq_items` and `contacts_directory` through `PrismaService`; controllers must not access Prisma directly.
-  - [ ] Filter records with `is_active = true` and whitelist only safe response fields needed by the agent.
-  - [ ] For support contacts, join `departments` so the payload can return a readable department name instead of only `department_id`.
-  - [ ] Keep response properties in `camelCase` even though Prisma columns are `snake_case`.
+- [x] Task 2: Implement onboarding read services backed by Prisma (AC: 3, 4)
+  - [x] Create service methods that query `faq_items` and `contacts_directory` through `PrismaService`; controllers must not access Prisma directly.
+  - [x] Filter records with `is_active = true` and whitelist only safe response fields needed by the agent.
+  - [x] For support contacts, join `departments` so the payload can return a readable department name instead of only `department_id`.
+  - [x] Keep response properties in `camelCase` even though Prisma columns are `snake_case`.
 
-- [ ] Task 3: Enforce internal API and observability contracts (AC: 2, 3, 4)
-  - [ ] Rely on the existing global `SuccessResponseInterceptor` and `HttpExceptionFilter` for the standard `{ success, data, meta.traceId }` envelope; do not hand-roll response wrappers inside the controller.
-  - [ ] Preserve traceability through the existing `X-Trace-Id` flow and avoid dropping request headers used by the internal guard (`X-Agent-Name`, `X-User-Id`, `X-Conversation-Id`).
-  - [ ] Throw NestJS exceptions for invalid filters or missing resources so error responses keep the standard error-code contract.
+- [x] Task 3: Enforce internal API and observability contracts (AC: 2, 3, 4)
+  - [x] Rely on the existing global `SuccessResponseInterceptor` and `HttpExceptionFilter` for the standard `{ success, data, meta.traceId }` envelope; do not hand-roll response wrappers inside the controller.
+  - [x] Preserve traceability through the existing `X-Trace-Id` flow and avoid dropping request headers used by the internal guard (`X-Agent-Name`, `X-User-Id`, `X-Conversation-Id`).
+  - [x] Throw NestJS exceptions for invalid filters or missing resources so error responses keep the standard error-code contract.
 
-- [ ] Task 4: Add focused automated tests for the new onboarding endpoints (AC: 2, 3, 4)
-  - [ ] Add a controller spec that verifies the routes call the service and remain guard-protected using the same Nest testing style already used in `users.controller.spec.ts`.
-  - [ ] Add a service spec that mocks Prisma and verifies only active FAQ/contact records are returned and mapped to the expected JSON shape.
-  - [ ] Cover the department-name mapping for contacts and confirm inactive records are excluded from results.
+- [x] Task 4: Add focused automated tests for the new onboarding endpoints (AC: 2, 3, 4)
+  - [x] Add a controller spec that verifies the routes call the service and remain guard-protected using the same Nest testing style already used in `users.controller.spec.ts`.
+  - [x] Add a service spec that mocks Prisma and verifies only active FAQ/contact records are returned and mapped to the expected JSON shape.
+  - [x] Cover the department-name mapping for contacts and confirm inactive records are excluded from results.
 
-- [ ] Task 5: Keep scope tight and aligned with downstream stories
-  - [ ] Do not implement checklist completion, UI cards, OpenClaw tool definitions, or external user-facing FAQ/contact endpoints in this story; those belong to other stories.
-  - [ ] Do not read from `generated/` or ad-hoc Markdown files as the source of truth for FAQ/contact responses when the database already contains these entities.
+- [x] Task 5: Keep scope tight and aligned with downstream stories
+  - [x] Do not implement checklist completion, UI cards, OpenClaw tool definitions, or external user-facing FAQ/contact endpoints in this story; those belong to other stories.
+  - [x] Do not read from `generated/` or ad-hoc Markdown files as the source of truth for FAQ/contact responses when the database already contains these entities.
 
 ## Dev Notes
 
@@ -152,13 +152,27 @@ GPT-5 Codex
 
 - Story selected automatically from `_bmad-output/implementation-artifacts/sprint-status.yaml` as the first backlog item in read order.
 - Story context synthesized from Epic 3, PRD onboarding requirements, backend architecture guides, current backend module structure, and the latest completed story file.
+- Added the first real onboarding backend slice by wiring `OnboardingModule` to `AuthModule`, registering an internal-only controller, and keeping the route namespace under `/internal/tools/onboarding/*`.
+- Implemented Prisma-backed read services that explicitly select safe FAQ/contact fields, filter on `is_active = true`, and flatten department names into camelCase response payloads.
+- Wrote focused controller/service unit specs, then ran the targeted onboarding tests, the full backend Jest suite, and `nest build` to confirm no regressions.
 
 ### Completion Notes List
 
 - Comprehensive context created for the first story in Epic 3.
 - Story is scoped to backend internal onboarding knowledge APIs only.
 - Guardrails included to prevent direct DB access from controllers, mixed route namespaces, and source-of-truth drift.
+- `GET /internal/tools/onboarding/faq` and `GET /internal/tools/onboarding/contacts/support` now return Prisma-backed onboarding knowledge data through a thin controller protected by `InternalAgentGuard` and `@AgentScope('read:onboarding')`.
+- `OnboardingService` now enforces active-only filtering plus safe DTO-style mapping so inactive rows and raw Prisma shapes are not leaked to the agent.
+- Added dedicated controller and service specs for the onboarding slice, then validated the whole backend with `npm.cmd test` and `npm.cmd run build`.
 
 ### File List
 
-- `_bmad-output/implementation-artifacts/3-1-support-directory-and-faq-internal-api-cau-noi-kien-thuc.md`
+- `be/src/modules/onboarding/onboarding.module.ts`
+- `be/src/modules/onboarding/onboarding.internal.controller.ts`
+- `be/src/modules/onboarding/onboarding.service.ts`
+- `be/src/modules/onboarding/onboarding.internal.controller.spec.ts`
+- `be/src/modules/onboarding/onboarding.service.spec.ts`
+
+## Change Log
+
+- `2026-03-22`: Implemented Story 3.1 onboarding internal knowledge endpoints, added Prisma-backed FAQ/support contact mapping, and verified the backend suite plus production build.

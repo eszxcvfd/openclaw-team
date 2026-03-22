@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-03-22T13:44:30+07:00
-last_updated: 2026-03-22T19:41:08+07:00
+last_updated: 2026-03-22T22:46:00+07:00
 project: openclaw-team
 project_key: NOKEY
 tracking_system: file-system
@@ -55,13 +55,13 @@ development_status:
   2-4-context-injector-middleware-context-building: review
   epic-2-retrospective: optional
   epic-3: in-progress
-  3-1-support-directory-and-faq-internal-api-cau-noi-kien-thuc: ready-for-dev
-  3-2-onboarding-tasks-internal-api-cau-noi-nghiep-vu: backlog
-  3-3-interactive-chat-ui-for-tool-outcomes-giao-dien-tuong-tac: backlog
+  3-1-support-directory-and-faq-internal-api-cau-noi-kien-thuc: review
+  3-2-onboarding-tasks-internal-api-cau-noi-nghiep-vu: review
+  3-3-interactive-chat-ui-for-tool-outcomes-giao-dien-tuong-tac: in-progress
   epic-3-retrospective: optional
-  epic-4: backlog
-  4-1-append-only-audit-tailing-logger: backlog
-  4-2-security-investigation-dashboard: backlog
+  epic-4: in-progress
+  4-1-append-only-audit-tailing-logger: review
+  4-2-security-investigation-dashboard: review
   epic-4-retrospective: optional
   epic-5: backlog
   5-1-ai-mini-quiz-generator-and-grading: backlog

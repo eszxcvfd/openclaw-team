@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Reflector } from '@nestjs/core';
 import { InternalAgentGuard } from './internal-agent.guard';
 import { InternalTokenService } from '../internal-token.service';
+import { ToolCallLoggerService } from '../../tool-gateway/tool-call-logger.service';
 import { ExecutionContext, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { AGENT_SCOPE_KEY } from '../decorators/agent-scope.decorator';
 
@@ -18,12 +19,17 @@ describe('InternalAgentGuard', () => {
     verifyToken: jest.fn(),
   };
 
+  const mockToolCallLoggerService = {
+    logGuardDenial: jest.fn().mockResolvedValue(undefined),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         InternalAgentGuard,
         { provide: Reflector, useValue: mockReflector },
         { provide: InternalTokenService, useValue: mockInternalTokenService },
+        { provide: ToolCallLoggerService, useValue: mockToolCallLoggerService },
       ],
     }).compile();
 
@@ -41,6 +47,7 @@ describe('InternalAgentGuard', () => {
     let mockRequest: any;
 
     beforeEach(() => {
+      jest.clearAllMocks();
       mockRequest = {
         headers: {},
         params: {},
@@ -58,13 +65,17 @@ describe('InternalAgentGuard', () => {
 
     it('should throw UnauthorizedException if Authorization header is missing', async () => {
       await expect(guard.canActivate(mockContext)).rejects.toThrow(UnauthorizedException);
+      expect(mockToolCallLoggerService.logGuardDenial).toHaveBeenCalledTimes(1);
     });
 
     it('should throw UnauthorizedException if token is invalid', async () => {
       mockRequest.headers.authorization = 'Bearer invalid-token';
-      mockInternalTokenService.verifyToken.mockResolvedValue(null);
+      mockInternalTokenService.verifyToken.mockRejectedValue(
+        new UnauthorizedException('Invalid or expired internal agent token.'),
+      );
 
       await expect(guard.canActivate(mockContext)).rejects.toThrow(UnauthorizedException);
+      expect(mockToolCallLoggerService.logGuardDenial).toHaveBeenCalledTimes(1);
     });
 
     it('should allow access if no scopes are required', async () => {
@@ -82,6 +93,7 @@ describe('InternalAgentGuard', () => {
 
       expect(result).toBe(true);
       expect(mockRequest.internalAgent).toEqual(mockPayload);
+      expect(mockToolCallLoggerService.logGuardDenial).not.toHaveBeenCalled();
     });
 
     it('should allow access if user has required scopes', async () => {
@@ -98,6 +110,7 @@ describe('InternalAgentGuard', () => {
       const result = await guard.canActivate(mockContext);
 
       expect(result).toBe(true);
+      expect(mockToolCallLoggerService.logGuardDenial).not.toHaveBeenCalled();
     });
 
     it('should throw ForbiddenException if user lacks required scopes', async () => {
@@ -112,6 +125,7 @@ describe('InternalAgentGuard', () => {
       mockReflector.getAllAndOverride.mockReturnValue(['read:onboarding']);
 
       await expect(guard.canActivate(mockContext)).rejects.toThrow(ForbiddenException);
+      expect(mockToolCallLoggerService.logGuardDenial).toHaveBeenCalledTimes(1);
     });
 
     it('should throw ForbiddenException if x-user-id does not match token userId', async () => {
@@ -126,6 +140,7 @@ describe('InternalAgentGuard', () => {
       mockReflector.getAllAndOverride.mockReturnValue(null);
 
       await expect(guard.canActivate(mockContext)).rejects.toThrow(ForbiddenException);
+      expect(mockToolCallLoggerService.logGuardDenial).toHaveBeenCalledTimes(1);
     });
 
     it('should throw ForbiddenException if route params request another userId', async () => {
@@ -140,6 +155,7 @@ describe('InternalAgentGuard', () => {
       mockReflector.getAllAndOverride.mockReturnValue(null);
 
       await expect(guard.canActivate(mockContext)).rejects.toThrow(ForbiddenException);
+      expect(mockToolCallLoggerService.logGuardDenial).toHaveBeenCalledTimes(1);
     });
 
     it('should throw ForbiddenException if x-agent-name does not match token agent', async () => {
@@ -154,6 +170,7 @@ describe('InternalAgentGuard', () => {
       mockReflector.getAllAndOverride.mockReturnValue(null);
 
       await expect(guard.canActivate(mockContext)).rejects.toThrow(ForbiddenException);
+      expect(mockToolCallLoggerService.logGuardDenial).toHaveBeenCalledTimes(1);
     });
   });
 });
