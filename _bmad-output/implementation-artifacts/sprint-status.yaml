@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-03-22T13:44:30+07:00
-last_updated: 2026-03-22T22:46:00+07:00
+last_updated: 2026-03-23T06:30:10+07:00
 project: openclaw-team
 project_key: NOKEY
 tracking_system: file-system
@@ -63,8 +63,8 @@ development_status:
   4-1-append-only-audit-tailing-logger: review
   4-2-security-investigation-dashboard: review
   epic-4-retrospective: optional
-  epic-5: backlog
-  5-1-ai-mini-quiz-generator-and-grading: backlog
+  epic-5: in-progress
+  5-1-ai-mini-quiz-generator-and-grading: ready-for-dev
   5-2-learning-path-recommender: backlog
   epic-5-retrospective: optional
   epic-6: backlog
