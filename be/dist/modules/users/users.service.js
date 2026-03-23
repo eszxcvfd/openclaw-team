@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsersService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../infra/prisma/prisma.service");
+const agent_registry_1 = require("../agent-router/agent-registry");
 let UsersService = class UsersService {
     prisma;
     constructor(prisma) {
@@ -35,6 +36,10 @@ let UsersService = class UsersService {
         });
     }
     async updateAgentAccess(userId, agentGroupCode, isAllowed) {
+        const normalizedAgentGroupCode = (0, agent_registry_1.toDbAgentGroupCode)(agentGroupCode);
+        if (!normalizedAgentGroupCode) {
+            throw new common_1.NotFoundException(`Agent group with code ${agentGroupCode} not found`);
+        }
         const user = await this.prisma.users.findUnique({
             where: { id: userId },
         });
@@ -42,7 +47,7 @@ let UsersService = class UsersService {
             throw new common_1.NotFoundException(`User with ID ${userId} not found`);
         }
         const agentGroup = await this.prisma.agent_groups.findUnique({
-            where: { code: agentGroupCode },
+            where: { code: normalizedAgentGroupCode },
         });
         if (!agentGroup) {
             throw new common_1.NotFoundException(`Agent group with code ${agentGroupCode} not found`);

@@ -74,7 +74,7 @@ describe('ContextBuilderService', () => {
             prisma.conversations.findUnique.mockResolvedValue({
                 id: 'conv-1',
                 started_at: new Date('2026-03-22T08:00:00.000Z'),
-                agent_groups: { code: 'onboarding_assistant' },
+                agent_groups: { code: 'onboarding' },
                 _count: { messages: 12 },
             });
             prisma.messages.findMany.mockResolvedValue([

@@ -512,6 +512,8 @@ function runAgentAttempt(params: {
     prompt: effectivePrompt,
     images: params.isFallbackRetry ? undefined : params.opts.images,
     clientTools: params.opts.clientTools,
+    executableTools: params.opts.executableTools,
+    disableTools: params.opts.disableTools,
     provider: params.providerOverride,
     model: params.modelOverride,
     authProfileId,

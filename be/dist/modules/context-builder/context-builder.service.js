@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ContextBuilderService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../infra/prisma/prisma.service");
+const agent_registry_1 = require("../agent-router/agent-registry");
 let ContextBuilderService = class ContextBuilderService {
     prisma;
     constructor(prisma) {
@@ -80,7 +81,11 @@ let ContextBuilderService = class ContextBuilderService {
         });
         return {
             conversationId: conversation.id,
-            agentGroup: agentGroupOverride ?? conversation.agent_groups?.code ?? null,
+            agentGroup: (0, agent_registry_1.toRuntimeAgentCode)(agentGroupOverride) ??
+                (0, agent_registry_1.toRuntimeAgentCode)(conversation.agent_groups?.code) ??
+                agentGroupOverride ??
+                conversation.agent_groups?.code ??
+                null,
             startedAt: conversation.started_at.toISOString(),
             messageCount: conversation._count.messages,
             recentTurns: recentMessages.reverse().map((message) => ({

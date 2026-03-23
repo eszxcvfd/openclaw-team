@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import { toRuntimeAgentCode } from '../agent-router/agent-registry';
 
 export interface BuiltUserContext {
   id: string;
@@ -124,7 +125,12 @@ export class ContextBuilderService {
 
     return {
       conversationId: conversation.id,
-      agentGroup: agentGroupOverride ?? conversation.agent_groups?.code ?? null,
+      agentGroup:
+        toRuntimeAgentCode(agentGroupOverride) ??
+        toRuntimeAgentCode(conversation.agent_groups?.code) ??
+        agentGroupOverride ??
+        conversation.agent_groups?.code ??
+        null,
       startedAt: conversation.started_at.toISOString(),
       messageCount: conversation._count.messages,
       recentTurns: recentMessages.reverse().map((message) => ({

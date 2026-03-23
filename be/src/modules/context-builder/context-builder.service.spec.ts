@@ -9,6 +9,8 @@ describe('ContextBuilderService', () => {
     users: { findUnique: jest.Mock };
     conversations: { findUnique: jest.Mock };
     messages: { findMany: jest.Mock };
+    user_roles: { findMany: jest.Mock };
+    documents: { findMany: jest.Mock };
   };
 
   beforeEach(async () => {
@@ -20,6 +22,12 @@ describe('ContextBuilderService', () => {
         findUnique: jest.fn(),
       },
       messages: {
+        findMany: jest.fn(),
+      },
+      user_roles: {
+        findMany: jest.fn(),
+      },
+      documents: {
         findMany: jest.fn(),
       },
     };
@@ -88,7 +96,7 @@ describe('ContextBuilderService', () => {
       prisma.conversations.findUnique.mockResolvedValue({
         id: 'conv-1',
         started_at: new Date('2026-03-22T08:00:00.000Z'),
-        agent_groups: { code: 'onboarding_assistant' },
+        agent_groups: { code: 'onboarding' },
         _count: { messages: 12 },
       });
 
@@ -168,6 +176,8 @@ describe('ContextBuilderService', () => {
           created_at: new Date('2026-03-22T08:01:00.000Z'),
         },
       ]);
+      prisma.user_roles.findMany.mockResolvedValue([]);
+      prisma.documents.findMany.mockResolvedValue([]);
 
       await expect(service.build('user-1', 'conv-1')).resolves.toEqual({
         user: {

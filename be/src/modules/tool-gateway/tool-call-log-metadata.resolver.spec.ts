@@ -46,7 +46,7 @@ describe('ToolCallLogMetadataResolver', () => {
         route: { path: 'faq' },
         originalUrl: '/internal/tools/onboarding/faq',
       } as never,
-      'onboarding',
+      'onboarding_assistant',
     );
 
     expect(prisma.backend_api_catalog.findFirst).toHaveBeenCalledWith({
@@ -110,7 +110,7 @@ describe('ToolCallLogMetadataResolver', () => {
         route: { path: 'faq' },
         originalUrl: '/internal/tools/onboarding/faq',
       } as never,
-      'onboarding',
+      'onboarding_assistant',
     );
 
     expect(result.apiId).toBe('api-1');

@@ -3,6 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { InternalAgentGuard } from './internal-agent.guard';
 import { InternalTokenService } from '../internal-token.service';
 import { ToolCallLoggerService } from '../../tool-gateway/tool-call-logger.service';
+import { ToolCallLogMetadataResolver } from '../../tool-gateway/tool-call-log-metadata.resolver';
 import { ExecutionContext, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { AGENT_SCOPE_KEY } from '../decorators/agent-scope.decorator';
 
@@ -23,6 +24,17 @@ describe('InternalAgentGuard', () => {
     logGuardDenial: jest.fn().mockResolvedValue(undefined),
   };
 
+  const mockToolCallLogMetadataResolver = {
+    resolve: jest.fn().mockResolvedValue({
+      normalizedPath: '/internal/tools/onboarding/faq',
+      routePath: 'faq',
+      method: 'GET',
+      apiId: 'api-1',
+      toolId: 'tool-1',
+      agentGroupId: 'agent-group-1',
+    }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -30,6 +42,7 @@ describe('InternalAgentGuard', () => {
         { provide: Reflector, useValue: mockReflector },
         { provide: InternalTokenService, useValue: mockInternalTokenService },
         { provide: ToolCallLoggerService, useValue: mockToolCallLoggerService },
+        { provide: ToolCallLogMetadataResolver, useValue: mockToolCallLogMetadataResolver },
       ],
     }).compile();
 
@@ -48,6 +61,14 @@ describe('InternalAgentGuard', () => {
 
     beforeEach(() => {
       jest.clearAllMocks();
+      mockToolCallLogMetadataResolver.resolve.mockResolvedValue({
+        normalizedPath: '/internal/tools/onboarding/faq',
+        routePath: 'faq',
+        method: 'GET',
+        apiId: 'api-1',
+        toolId: 'tool-1',
+        agentGroupId: 'agent-group-1',
+      });
       mockRequest = {
         headers: {},
         params: {},
@@ -168,6 +189,28 @@ describe('InternalAgentGuard', () => {
         scope: [],
       });
       mockReflector.getAllAndOverride.mockReturnValue(null);
+
+      await expect(guard.canActivate(mockContext)).rejects.toThrow(ForbiddenException);
+      expect(mockToolCallLoggerService.logGuardDenial).toHaveBeenCalledTimes(1);
+    });
+
+    it('should throw ForbiddenException if the tool endpoint is not allowlisted for the agent', async () => {
+      mockRequest.headers.authorization = 'Bearer valid-token';
+      mockInternalTokenService.verifyToken.mockResolvedValue({
+        agent: 'onboarding_assistant',
+        userId: 'user-1',
+        conversationId: 'conv-1',
+        scope: ['read:onboarding'],
+      });
+      mockReflector.getAllAndOverride.mockReturnValue(['read:onboarding']);
+      mockToolCallLogMetadataResolver.resolve.mockResolvedValue({
+        normalizedPath: '/internal/tools/onboarding/faq',
+        routePath: 'faq',
+        method: 'GET',
+        apiId: 'api-1',
+        toolId: null,
+        agentGroupId: 'agent-group-1',
+      });
 
       await expect(guard.canActivate(mockContext)).rejects.toThrow(ForbiddenException);
       expect(mockToolCallLoggerService.logGuardDenial).toHaveBeenCalledTimes(1);

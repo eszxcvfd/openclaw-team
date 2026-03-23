@@ -12,44 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AgentRouterService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../infra/prisma/prisma.service");
-const DEFAULT_AGENT_ORDER = [
-    'onboarding_assistant',
-    'learning_training_agent',
-    'training_analytics_agent',
-];
-const AGENT_ROUTE_PROFILES = {
-    onboarding_assistant: {
-        keywords: [
-            /(onboard|onboarding|nhan vien moi|new hire|checklist|first day|faq|policy|support|contact)/i,
-        ],
-        tools: [
-            'get_onboarding_faq',
-            'get_support_contacts',
-            'get_my_checklist',
-            'complete_checklist_task',
-        ],
-        scopes: ['read:onboarding', 'read:checklist', 'write:checklist'],
-    },
-    learning_training_agent: {
-        keywords: [
-            /(training|dao tao|hoc|learning path|lo trinh|quiz|khoa hoc|course|skill|recommend)/i,
-        ],
-        tools: [
-            'get_training_recommendations',
-            'get_my_learning_path',
-            'generate_learning_path',
-            'generate_quiz',
-        ],
-        scopes: ['read:training', 'write:training'],
-    },
-    training_analytics_agent: {
-        keywords: [
-            /(analytics|bao cao|report|dashboard|kpi|feedback|phan tich|tong hop|department|phong ban)/i,
-        ],
-        tools: ['get_department_training_analytics'],
-        scopes: ['read:analytics'],
-    },
-};
+const agent_registry_1 = require("./agent-registry");
 let AgentRouterService = class AgentRouterService {
     prisma;
     constructor(prisma) {
@@ -99,7 +62,7 @@ let AgentRouterService = class AgentRouterService {
         return this.buildDecision(allowedAgentGroups[0] ?? 'learning_training_agent', allowedAgentGroups, 'default');
     }
     buildDecision(agentGroup, allowedAgentGroups, classificationSource) {
-        const profile = AGENT_ROUTE_PROFILES[agentGroup];
+        const profile = (0, agent_registry_1.getAgentRegistryEntry)(agentGroup).profile;
         return {
             agentGroup,
             allowedAgentGroups,
@@ -114,23 +77,23 @@ let AgentRouterService = class AgentRouterService {
     resolveAllowedAgentGroups(accessProfile) {
         const explicitAllowed = accessProfile?.user_agent_access
             .filter((entry) => entry.is_allowed && entry.agent_groups.is_active)
-            .map((entry) => this.normalizeAgentGroupCode(entry.agent_groups.code))
-            .filter((entry) => Boolean(entry));
-        if (explicitAllowed && explicitAllowed.length > 0) {
-            return DEFAULT_AGENT_ORDER.filter((entry) => explicitAllowed.includes(entry));
+            .map((entry) => entry.agent_groups.code);
+        const explicitAllowedAgentGroups = (0, agent_registry_1.getRuntimeAgentCodesFromDbCodes)(explicitAllowed ?? []);
+        if (explicitAllowedAgentGroups.length > 0) {
+            return explicitAllowedAgentGroups;
         }
         const roleCodes = accessProfile?.user_roles.map((entry) => entry.roles.code.toLowerCase()) ?? [];
         const isManagerLike = roleCodes.some((roleCode) => /(manager|lead|supervisor|hr|admin)/i.test(roleCode));
         return isManagerLike
-            ? DEFAULT_AGENT_ORDER
-            : DEFAULT_AGENT_ORDER.filter((entry) => entry !== 'training_analytics_agent');
+            ? agent_registry_1.DEFAULT_AGENT_ORDER
+            : agent_registry_1.DEFAULT_AGENT_ORDER.filter((entry) => entry !== 'training_analytics_agent');
     }
     resolveRuleMatch(message, allowedAgentGroups) {
-        for (const agentGroup of DEFAULT_AGENT_ORDER) {
+        for (const agentGroup of agent_registry_1.DEFAULT_AGENT_ORDER) {
             if (!allowedAgentGroups.includes(agentGroup)) {
                 continue;
             }
-            const matched = AGENT_ROUTE_PROFILES[agentGroup].keywords.some((pattern) => pattern.test(message));
+            const matched = (0, agent_registry_1.getAgentRegistryEntry)(agentGroup).profile.keywords.some((pattern) => pattern.test(message));
             if (matched) {
                 return agentGroup;
             }
@@ -190,16 +153,7 @@ let AgentRouterService = class AgentRouterService {
         }
     }
     normalizeAgentGroupCode(value) {
-        switch ((value ?? '').trim().toLowerCase()) {
-            case 'onboarding_assistant':
-                return 'onboarding_assistant';
-            case 'learning_training_agent':
-                return 'learning_training_agent';
-            case 'training_analytics_agent':
-                return 'training_analytics_agent';
-            default:
-                return null;
-        }
+        return (0, agent_registry_1.toRuntimeAgentCode)(value);
     }
 };
 exports.AgentRouterService = AgentRouterService;

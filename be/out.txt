@@ -85,3 +85,86 @@ Error: listen EADDRINUSE: address already in use :::3001
 Node.js v24.11.0
 [2J[3J[H[[90m2:38:58 PM[0m] File change detected. Starting incremental compilation...
 
+[2J[3J[H[[90m3:25:20 PM[0m] File change detected. Starting incremental compilation...
+
+[[90m3:25:25 PM[0m] Found 0 errors. Watching for file changes.
+
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[NestFactory] [39m[32mStarting Nest application...[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAppModule dependencies initialized[39m[38;5;3m +39ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mPrismaModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mPassportModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mIamModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mDocumentsModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mJobsModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigHostModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mJwtModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAgentRouterModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mContextBuilderModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mHealthModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mOpenclawModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mToolGatewayModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAuthModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAuditModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mOnboardingModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAnalyticsModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mUsersModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTrainingModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mChatModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mHealthController {/api/health}:[39m[38;5;3m +5ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/health, GET} route[39m[38;5;3m +3ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mAuthController {/auth}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/auth/login, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mAuditController {/api/audit-logs}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/audit-logs, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/audit-logs/:id, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mChatController {/api/chat}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/chat/message, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/chat/conversations, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/chat/conversations/:id/messages, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mOnboardingInternalController {/internal/tools/onboarding}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/internal/tools/onboarding/faq, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/internal/tools/onboarding/contacts/support, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/internal/tools/onboarding/me/checklist, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/internal/tools/onboarding/me/checklist/:taskId/complete, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mTrainingInternalController {/internal/tools/training}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/internal/tools/training/me/training-recommendations, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/internal/tools/training/me/learning-path, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/internal/tools/training/me/learning-path/generate, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/internal/tools/training/quiz/generate, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mTrainingController {/api}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/me/training-recommendations, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/me/learning-path, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/me/learning-path/generate, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/quiz/submit, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/quiz/:id/result, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mAnalyticsInternalController {/internal/tools/analytics/training}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/internal/tools/analytics/training/department, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mUsersController {/api/users}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/users, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/users/:id/access, PUT} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [32m    LOG[39m [38;5;3m[NestApplication] [39m[32mNest application successfully started[39m[38;5;3m +101ms[39m
+[31m[Nest] 8896  - [39m03/23/2026, 3:25:27 PM [31m  ERROR[39m [38;5;3m[NestApplication] [39m[31mError: listen EADDRINUSE: address already in use :::3001[39m[38;5;3m +4ms[39m
+node:net:1940
+    const ex = new UVExceptionWithHostPort(err, 'listen', address, port);
+               ^
+
+Error: listen EADDRINUSE: address already in use :::3001
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at Server.listen (node:net:2102:7)
+    at ExpressAdapter.listen (D:\openclaw-team\be\node_modules\@nestjs\platform-express\adapters\express-adapter.js:127:32)
+    at D:\openclaw-team\be\node_modules\@nestjs\core\nest-application.js:188:30
+    at new Promise (<anonymous>)
+    at NestApplication.listen (D:\openclaw-team\be\node_modules\@nestjs\core\nest-application.js:178:16)
+    at async bootstrap (D:\openclaw-team\be\src\main.ts:31:3) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3001
+}
+
+Node.js v24.11.0
+[2J[3J[H[[90m3:58:17 PM[0m] File change detected. Starting incremental compilation...
+

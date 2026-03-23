@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import { toDbAgentGroupCode } from '../agent-router/agent-registry';
 
 export interface DepartmentAnalyticsSummaryDto {
   departmentId: string;
@@ -62,10 +63,11 @@ export class AnalyticsService {
     const roleCodes = manager.user_roles.map((entry) => entry.roles.code.toLowerCase());
     const allowedAgentCodes = manager.user_agent_access
       .filter((entry) => entry.is_allowed)
-      .map((entry) => entry.agent_groups.code.toLowerCase());
+      .map((entry) => toDbAgentGroupCode(entry.agent_groups.code))
+      .filter((entry): entry is 'training_analytics' | 'onboarding' | 'learning_training' => Boolean(entry));
 
     const isManager = roleCodes.some((code) => code.includes('manager') || code.includes('hr'));
-    const hasAnalyticsAgentAccess = allowedAgentCodes.includes('training_analytics_agent');
+    const hasAnalyticsAgentAccess = allowedAgentCodes.includes('training_analytics');
 
     if (!isManager || !hasAnalyticsAgentAccess) {
       throw new ForbiddenException({

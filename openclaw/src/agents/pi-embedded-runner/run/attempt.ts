@@ -1824,13 +1824,14 @@ export async function runEmbeddedAttempt(
             abortSessionForYield?.();
           },
         });
+    const executableTools = params.executableTools ?? [];
     const toolsEnabled = supportsModelTools(params.model);
     const tools = sanitizeToolsForGoogle({
-      tools: toolsEnabled ? toolsRaw : [],
+      tools: toolsEnabled ? [...toolsRaw, ...executableTools] : [],
       provider: params.provider,
     });
     const clientTools = toolsEnabled ? params.clientTools : undefined;
-    const bundleMcpRuntime = toolsEnabled
+    const bundleMcpRuntime = toolsEnabled && !params.disableTools
       ? await createBundleMcpToolRuntime({
           workspaceDir: effectiveWorkspace,
           cfg: params.config,
@@ -1840,7 +1841,7 @@ export async function runEmbeddedAttempt(
           ],
         })
       : undefined;
-    const bundleLspRuntime = toolsEnabled
+    const bundleLspRuntime = toolsEnabled && !params.disableTools
       ? await createBundleLspToolRuntime({
           workspaceDir: effectiveWorkspace,
           cfg: params.config,

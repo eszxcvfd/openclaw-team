@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import { toDbAgentGroupCode } from '../agent-router/agent-registry';
 
 @Injectable()
 export class UsersService {
@@ -24,6 +25,12 @@ export class UsersService {
   }
 
   async updateAgentAccess(userId: string, agentGroupCode: string, isAllowed: boolean) {
+    const normalizedAgentGroupCode = toDbAgentGroupCode(agentGroupCode);
+
+    if (!normalizedAgentGroupCode) {
+      throw new NotFoundException(`Agent group with code ${agentGroupCode} not found`);
+    }
+
     const user = await this.prisma.users.findUnique({
       where: { id: userId },
     });
@@ -32,7 +39,7 @@ export class UsersService {
     }
 
     const agentGroup = await this.prisma.agent_groups.findUnique({
-      where: { code: agentGroupCode },
+      where: { code: normalizedAgentGroupCode },
     });
     if (!agentGroup) {
       throw new NotFoundException(`Agent group with code ${agentGroupCode} not found`);

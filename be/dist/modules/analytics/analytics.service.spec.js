@@ -42,7 +42,7 @@ describe('AnalyticsService', () => {
                 {
                     is_allowed: true,
                     agent_groups: {
-                        code: 'training_analytics_agent',
+                        code: 'training_analytics',
                     },
                 },
             ],
@@ -113,7 +113,7 @@ describe('AnalyticsService', () => {
                 {
                     is_allowed: false,
                     agent_groups: {
-                        code: 'training_analytics_agent',
+                        code: 'training_analytics',
                     },
                 },
             ],
@@ -141,7 +141,7 @@ describe('AnalyticsService', () => {
                 {
                     is_allowed: true,
                     agent_groups: {
-                        code: 'training_analytics_agent',
+                        code: 'training_analytics',
                     },
                 },
             ],

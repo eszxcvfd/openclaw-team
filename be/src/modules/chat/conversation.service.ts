@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import { toDbAgentGroupCode } from '../agent-router/agent-registry';
 
 type MessageMetadata = Prisma.InputJsonObject;
 
@@ -26,11 +27,12 @@ export class ConversationService {
 
   async getOrCreateConversation(userId: string, agentGroupCode?: string, sessionKey?: string) {
     const key = sessionKey || `default-${userId}`;
+    const normalizedAgentGroupCode = toDbAgentGroupCode(agentGroupCode);
 
     let agentGroupId = null;
-    if (agentGroupCode) {
+    if (normalizedAgentGroupCode) {
       const group = await this.prisma.agent_groups.findUnique({
-        where: { code: agentGroupCode },
+        where: { code: normalizedAgentGroupCode },
       });
       agentGroupId = group?.id;
     }

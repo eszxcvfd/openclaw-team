@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ToolCallLogMetadataResolver = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../infra/prisma/prisma.service");
+const agent_registry_1 = require("../agent-router/agent-registry");
 let ToolCallLogMetadataResolver = class ToolCallLogMetadataResolver {
     prisma;
     constructor(prisma) {
@@ -21,7 +22,7 @@ let ToolCallLogMetadataResolver = class ToolCallLogMetadataResolver {
         const method = request.method.toUpperCase();
         const routePath = this.resolveRoutePath(request);
         const normalizedPath = this.normalizeRoutePath(request, routePath);
-        const resolvedAgentCode = agentCode ?? this.inferAgentCode(normalizedPath);
+        const resolvedAgentCode = (0, agent_registry_1.toDbAgentGroupCode)(agentCode) ?? this.inferAgentCode(normalizedPath);
         const [apiRecord, agentGroupRecord] = await Promise.all([
             this.prisma.backend_api_catalog.findFirst({
                 where: {
@@ -92,7 +93,7 @@ let ToolCallLogMetadataResolver = class ToolCallLogMetadataResolver {
     inferAgentCode(normalizedPath) {
         if (normalizedPath === '/api/quiz/submit' ||
             /\/api\/quiz\/[^/]+\/result$/.test(normalizedPath)) {
-            return 'learning_training_agent';
+            return 'learning_training';
         }
         return undefined;
     }

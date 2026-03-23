@@ -1,11 +1,15 @@
 import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import {
+  AgentRuntimeCode,
+  DEFAULT_AGENT_ORDER,
+  getAgentRegistryEntry,
+  getRuntimeAgentCodesFromDbCodes,
+  toRuntimeAgentCode,
+} from './agent-registry';
 
-export type AgentGroupCode =
-  | 'onboarding_assistant'
-  | 'learning_training_agent'
-  | 'training_analytics_agent';
+export type AgentGroupCode = AgentRuntimeCode;
 
 export interface AgentAllowedResources {
   documents: string[];
@@ -20,12 +24,6 @@ export interface AgentRouteDecision {
   classificationSource: 'rule' | 'google' | 'sticky' | 'default';
 }
 
-type AgentRouteProfile = {
-  keywords: RegExp[];
-  tools: string[];
-  scopes: string[];
-};
-
 type UserAccessProfile = {
   user_roles: Array<{
     roles: {
@@ -39,46 +37,6 @@ type UserAccessProfile = {
       is_active: boolean;
     };
   }>;
-};
-
-const DEFAULT_AGENT_ORDER: AgentGroupCode[] = [
-  'onboarding_assistant',
-  'learning_training_agent',
-  'training_analytics_agent',
-];
-
-const AGENT_ROUTE_PROFILES: Record<AgentGroupCode, AgentRouteProfile> = {
-  onboarding_assistant: {
-    keywords: [
-      /(onboard|onboarding|nhan vien moi|new hire|checklist|first day|faq|policy|support|contact)/i,
-    ],
-    tools: [
-      'get_onboarding_faq',
-      'get_support_contacts',
-      'get_my_checklist',
-      'complete_checklist_task',
-    ],
-    scopes: ['read:onboarding', 'read:checklist', 'write:checklist'],
-  },
-  learning_training_agent: {
-    keywords: [
-      /(training|dao tao|hoc|learning path|lo trinh|quiz|khoa hoc|course|skill|recommend)/i,
-    ],
-    tools: [
-      'get_training_recommendations',
-      'get_my_learning_path',
-      'generate_learning_path',
-      'generate_quiz',
-    ],
-    scopes: ['read:training', 'write:training'],
-  },
-  training_analytics_agent: {
-    keywords: [
-      /(analytics|bao cao|report|dashboard|kpi|feedback|phan tich|tong hop|department|phong ban)/i,
-    ],
-    tools: ['get_department_training_analytics'],
-    scopes: ['read:analytics'],
-  },
 };
 
 @Injectable()
@@ -143,7 +101,7 @@ export class AgentRouterService {
     allowedAgentGroups: AgentGroupCode[],
     classificationSource: AgentRouteDecision['classificationSource'],
   ): AgentRouteDecision {
-    const profile = AGENT_ROUTE_PROFILES[agentGroup];
+    const profile = getAgentRegistryEntry(agentGroup).profile;
 
     return {
       agentGroup,
@@ -160,11 +118,12 @@ export class AgentRouterService {
   private resolveAllowedAgentGroups(accessProfile: UserAccessProfile | null): AgentGroupCode[] {
     const explicitAllowed = accessProfile?.user_agent_access
       .filter((entry) => entry.is_allowed && entry.agent_groups.is_active)
-      .map((entry) => this.normalizeAgentGroupCode(entry.agent_groups.code))
-      .filter((entry): entry is AgentGroupCode => Boolean(entry));
+      .map((entry) => entry.agent_groups.code);
 
-    if (explicitAllowed && explicitAllowed.length > 0) {
-      return DEFAULT_AGENT_ORDER.filter((entry) => explicitAllowed.includes(entry));
+    const explicitAllowedAgentGroups = getRuntimeAgentCodesFromDbCodes(explicitAllowed ?? []);
+
+    if (explicitAllowedAgentGroups.length > 0) {
+      return explicitAllowedAgentGroups;
     }
 
     const roleCodes = accessProfile?.user_roles.map((entry) => entry.roles.code.toLowerCase()) ?? [];
@@ -186,7 +145,7 @@ export class AgentRouterService {
         continue;
       }
 
-      const matched = AGENT_ROUTE_PROFILES[agentGroup].keywords.some((pattern) =>
+      const matched = getAgentRegistryEntry(agentGroup).profile.keywords.some((pattern) =>
         pattern.test(message),
       );
 
@@ -273,15 +232,6 @@ export class AgentRouterService {
   }
 
   private normalizeAgentGroupCode(value?: string | null): AgentGroupCode | null {
-    switch ((value ?? '').trim().toLowerCase()) {
-      case 'onboarding_assistant':
-        return 'onboarding_assistant';
-      case 'learning_training_agent':
-        return 'learning_training_agent';
-      case 'training_analytics_agent':
-        return 'training_analytics_agent';
-      default:
-        return null;
-    }
+    return toRuntimeAgentCode(value);
   }
 }

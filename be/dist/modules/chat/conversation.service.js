@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ConversationService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../infra/prisma/prisma.service");
+const agent_registry_1 = require("../agent-router/agent-registry");
 let ConversationService = class ConversationService {
     prisma;
     constructor(prisma) {
@@ -33,10 +34,11 @@ let ConversationService = class ConversationService {
     }
     async getOrCreateConversation(userId, agentGroupCode, sessionKey) {
         const key = sessionKey || `default-${userId}`;
+        const normalizedAgentGroupCode = (0, agent_registry_1.toDbAgentGroupCode)(agentGroupCode);
         let agentGroupId = null;
-        if (agentGroupCode) {
+        if (normalizedAgentGroupCode) {
             const group = await this.prisma.agent_groups.findUnique({
-                where: { code: agentGroupCode },
+                where: { code: normalizedAgentGroupCode },
             });
             agentGroupId = group?.id;
         }

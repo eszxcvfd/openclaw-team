@@ -767,6 +767,71 @@ describe("runEmbeddedAttempt bootstrap warning prompt assembly", () => {
   });
 });
 
+describe("runEmbeddedAttempt tool exposure", () => {
+  const tempPaths: string[] = [];
+
+  beforeEach(() => {
+    resetEmbeddedAttemptHarness({
+      subscribeImpl: createSubscriptionMock,
+    });
+  });
+
+  afterEach(async () => {
+    await cleanupTempPaths(tempPaths);
+  });
+
+  it("omits built-in coding tools when disableTools is enabled and keeps injected tools", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-tool-exposure-workspace-"));
+    const agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-tool-exposure-agent-"));
+    const sessionFile = path.join(workspaceDir, "session.jsonl");
+    tempPaths.push(workspaceDir, agentDir);
+    await fs.writeFile(sessionFile, "", "utf8");
+
+    const injectedTool: ToolDefinition = {
+      name: "generate_quiz",
+      description: "Generate quiz",
+      inputSchema: { type: "object", properties: {} },
+      execute: async () => ({ content: [{ type: "text", text: "ok" }] }),
+    };
+
+    hoisted.createAgentSessionMock.mockImplementation(async (params: {
+      tools: ToolDefinition[];
+      customTools: ToolDefinition[];
+    }) => {
+      expect(params.tools).toEqual([]);
+      expect(params.customTools.map((tool) => tool.name)).toContain("generate_quiz");
+      expect(params.customTools.map((tool) => tool.name)).not.toContain("sessions_spawn");
+      return { session: createDefaultEmbeddedSession() };
+    });
+
+    const runEmbeddedAttempt = await loadRunEmbeddedAttempt();
+    const result = await runEmbeddedAttempt({
+      sessionId: "embedded-session",
+      sessionKey: "agent:main:main",
+      sessionFile,
+      workspaceDir,
+      agentDir,
+      config: {},
+      prompt: "hello",
+      timeoutMs: 10_000,
+      runId: "run-tool-exposure",
+      provider: "openai",
+      modelId: "gpt-test",
+      model: testModel,
+      authStorage: {} as AuthStorage,
+      modelRegistry: {} as ModelRegistry,
+      thinkLevel: "off",
+      senderIsOwner: true,
+      disableMessageTool: true,
+      disableTools: true,
+      executableTools: [injectedTool],
+    });
+
+    expect(result.promptError).toBeNull();
+    expect(hoisted.createAgentSessionMock).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("runEmbeddedAttempt cache-ttl tracking after compaction", () => {
   const tempPaths: string[] = [];
 

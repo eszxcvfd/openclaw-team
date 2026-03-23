@@ -38,7 +38,7 @@ describe('ToolCallLogMetadataResolver', () => {
             baseUrl: '/internal/tools/onboarding',
             route: { path: 'faq' },
             originalUrl: '/internal/tools/onboarding/faq',
-        }, 'onboarding');
+        }, 'onboarding_assistant');
         expect(prisma.backend_api_catalog.findFirst).toHaveBeenCalledWith({
             where: {
                 http_method: 'GET',
@@ -91,7 +91,7 @@ describe('ToolCallLogMetadataResolver', () => {
             baseUrl: '/internal/tools/onboarding',
             route: { path: 'faq' },
             originalUrl: '/internal/tools/onboarding/faq',
-        }, 'onboarding');
+        }, 'onboarding_assistant');
         expect(result.apiId).toBe('api-1');
         expect(result.toolId).toBeNull();
         expect(result.agentGroupId).toBe('agent-group-1');

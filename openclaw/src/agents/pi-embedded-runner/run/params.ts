@@ -9,6 +9,7 @@ import type { AgentStreamParams } from "../../command/types.js";
 import type { BlockReplyPayload } from "../../pi-embedded-payloads.js";
 import type { BlockReplyChunking, ToolResultFormat } from "../../pi-embedded-subscribe.js";
 import type { SkillSnapshot } from "../../skills.js";
+import type { AnyAgentTool } from "../../tools/common.js";
 
 // Simplified tool definition for client-provided tools (OpenResponses hosted tools)
 export type ClientToolDefinition = {
@@ -74,7 +75,9 @@ export type RunEmbeddedPiAgentParams = {
   images?: ImageContent[];
   /** Optional client-provided tools (OpenResponses hosted tools). */
   clientTools?: ClientToolDefinition[];
-  /** Disable built-in tools for this run (LLM-only mode). */
+  /** Optional executable tools injected by a gateway/worker surface. */
+  executableTools?: AnyAgentTool[];
+  /** Disable built-in OpenClaw tools for this run while still allowing injected tools. */
   disableTools?: boolean;
   provider?: string;
   model?: string;

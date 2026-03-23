@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import { toDbAgentGroupCode } from '../agent-router/agent-registry';
 import { ToolCallCatalogMetadata, InternalToolRequest } from './tool-call-log.types';
 
 @Injectable()
@@ -14,7 +15,8 @@ export class ToolCallLogMetadataResolver {
     const method = request.method.toUpperCase();
     const routePath = this.resolveRoutePath(request);
     const normalizedPath = this.normalizeRoutePath(request, routePath);
-    const resolvedAgentCode = agentCode ?? this.inferAgentCode(normalizedPath);
+    const resolvedAgentCode =
+      toDbAgentGroupCode(agentCode) ?? this.inferAgentCode(normalizedPath);
 
     const [apiRecord, agentGroupRecord] = await Promise.all([
       this.prisma.backend_api_catalog.findFirst({
@@ -102,7 +104,7 @@ export class ToolCallLogMetadataResolver {
       normalizedPath === '/api/quiz/submit' ||
       /\/api\/quiz\/[^/]+\/result$/.test(normalizedPath)
     ) {
-      return 'learning_training_agent';
+      return 'learning_training';
     }
 
     return undefined;

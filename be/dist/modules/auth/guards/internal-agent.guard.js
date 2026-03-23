@@ -13,16 +13,19 @@ exports.InternalAgentGuard = void 0;
 const common_1 = require("@nestjs/common");
 const core_1 = require("@nestjs/core");
 const tool_call_logger_service_1 = require("../../tool-gateway/tool-call-logger.service");
+const tool_call_log_metadata_resolver_1 = require("../../tool-gateway/tool-call-log-metadata.resolver");
 const internal_token_service_1 = require("../internal-token.service");
 const agent_scope_decorator_1 = require("../decorators/agent-scope.decorator");
 let InternalAgentGuard = class InternalAgentGuard {
     reflector;
     internalTokenService;
     toolCallLogger;
-    constructor(reflector, internalTokenService, toolCallLogger) {
+    toolCallLogMetadataResolver;
+    constructor(reflector, internalTokenService, toolCallLogger, toolCallLogMetadataResolver) {
         this.reflector = reflector;
         this.internalTokenService = internalTokenService;
         this.toolCallLogger = toolCallLogger;
+        this.toolCallLogMetadataResolver = toolCallLogMetadataResolver;
     }
     async canActivate(context) {
         const requiredScopes = this.reflector.getAllAndOverride(agent_scope_decorator_1.AGENT_SCOPE_KEY, [
@@ -58,6 +61,18 @@ let InternalAgentGuard = class InternalAgentGuard {
                         },
                     });
                 }
+            }
+            const toolMetadata = await this.toolCallLogMetadataResolver.resolve(request, verifiedPayload.agent);
+            if (toolMetadata.apiId && !toolMetadata.toolId) {
+                throw new common_1.ForbiddenException({
+                    code: 'TOOL_ACCESS_DENIED',
+                    message: 'Agent is not allowed to call this tool endpoint.',
+                    details: {
+                        agent: verifiedPayload.agent,
+                        apiId: toolMetadata.apiId,
+                        normalizedPath: toolMetadata.normalizedPath,
+                    },
+                });
             }
             return true;
         }
@@ -162,6 +177,7 @@ exports.InternalAgentGuard = InternalAgentGuard = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [core_1.Reflector,
         internal_token_service_1.InternalTokenService,
-        tool_call_logger_service_1.ToolCallLoggerService])
+        tool_call_logger_service_1.ToolCallLoggerService,
+        tool_call_log_metadata_resolver_1.ToolCallLogMetadataResolver])
 ], InternalAgentGuard);
 //# sourceMappingURL=internal-agent.guard.js.map

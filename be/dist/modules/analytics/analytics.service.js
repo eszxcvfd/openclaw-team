@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AnalyticsService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../infra/prisma/prisma.service");
+const agent_registry_1 = require("../agent-router/agent-registry");
 let AnalyticsService = class AnalyticsService {
     prisma;
     constructor(prisma) {
@@ -22,9 +23,10 @@ let AnalyticsService = class AnalyticsService {
         const roleCodes = manager.user_roles.map((entry) => entry.roles.code.toLowerCase());
         const allowedAgentCodes = manager.user_agent_access
             .filter((entry) => entry.is_allowed)
-            .map((entry) => entry.agent_groups.code.toLowerCase());
+            .map((entry) => (0, agent_registry_1.toDbAgentGroupCode)(entry.agent_groups.code))
+            .filter((entry) => Boolean(entry));
         const isManager = roleCodes.some((code) => code.includes('manager') || code.includes('hr'));
-        const hasAnalyticsAgentAccess = allowedAgentCodes.includes('training_analytics_agent');
+        const hasAnalyticsAgentAccess = allowedAgentCodes.includes('training_analytics');
         if (!isManager || !hasAnalyticsAgentAccess) {
             throw new common_1.ForbiddenException({
                 code: 'AGENT_ACCESS_DENIED',

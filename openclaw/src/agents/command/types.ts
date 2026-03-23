@@ -1,5 +1,6 @@
 import type { AgentInternalEvent } from "../../agents/internal-events.js";
 import type { ClientToolDefinition } from "../../agents/pi-embedded-runner/run/params.js";
+import type { AnyAgentTool } from "../../agents/tools/common.js";
 import type { SpawnedRunMetadata } from "../../agents/spawned-context.js";
 import type { ChannelOutboundTargetMode } from "../../channels/plugins/types.js";
 import type { InputProvenance } from "../../sessions/input-provenance.js";
@@ -37,6 +38,10 @@ export type AgentCommandOpts = {
   images?: ImageContent[];
   /** Optional client-provided tools (OpenResponses hosted tools). */
   clientTools?: ClientToolDefinition[];
+  /** Optional executable tools injected by a gateway worker surface. */
+  executableTools?: AnyAgentTool[];
+  /** Disable built-in tools and use only explicitly injected tools for this run. */
+  disableTools?: boolean;
   /** Agent id override (must exist in config). */
   agentId?: string;
   /** Per-run provider override. */

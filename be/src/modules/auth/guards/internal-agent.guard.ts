@@ -10,6 +10,7 @@ import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 
 import { ToolCallLoggerService } from '../../tool-gateway/tool-call-logger.service';
+import { ToolCallLogMetadataResolver } from '../../tool-gateway/tool-call-log-metadata.resolver';
 import { InternalTokenService } from '../internal-token.service';
 import { InternalTokenPayload } from '../internal-token.service';
 import { AGENT_SCOPE_KEY } from '../decorators/agent-scope.decorator';
@@ -24,6 +25,7 @@ export class InternalAgentGuard implements CanActivate {
     private reflector: Reflector,
     private internalTokenService: InternalTokenService,
     private toolCallLogger: ToolCallLoggerService,
+    private toolCallLogMetadataResolver: ToolCallLogMetadataResolver,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -71,6 +73,23 @@ export class InternalAgentGuard implements CanActivate {
             },
           });
         }
+      }
+
+      const toolMetadata = await this.toolCallLogMetadataResolver.resolve(
+        request,
+        verifiedPayload.agent,
+      );
+
+      if (toolMetadata.apiId && !toolMetadata.toolId) {
+        throw new ForbiddenException({
+          code: 'TOOL_ACCESS_DENIED',
+          message: 'Agent is not allowed to call this tool endpoint.',
+          details: {
+            agent: verifiedPayload.agent,
+            apiId: toolMetadata.apiId,
+            normalizedPath: toolMetadata.normalizedPath,
+          },
+        });
       }
 
       return true;
