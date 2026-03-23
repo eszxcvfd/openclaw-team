@@ -4,6 +4,9 @@
   "description": "NestJS backend for OpenClaw team workspace",
   "main": "dist/main.js",
   "scripts": {
+    "postinstall": "npm run prisma:generate",
+    "predev": "npm run prisma:generate",
+    "prebuild": "npm run prisma:generate",
     "dev": "nest start --watch",
     "build": "nest build",
     "start": "node dist/main.js",
