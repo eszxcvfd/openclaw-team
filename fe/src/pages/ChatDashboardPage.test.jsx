@@ -45,6 +45,116 @@ function renderPage() {
   return render(<ChatDashboardPage />, { wrapper: createWrapper() })
 }
 
+function createDeferred() {
+  let resolve
+  let reject
+
+  const promise = new Promise((nextResolve, nextReject) => {
+    resolve = nextResolve
+    reject = nextReject
+  })
+
+  return { promise, resolve, reject }
+}
+
+describe('ChatDashboardPage composer', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+
+    useAuthStore.setState({
+      session: {
+        user: {
+          id: 'user-1',
+          fullName: 'Learner One',
+          email: 'learner@example.com',
+          role: 'Employee',
+          roleCode: 'employee',
+          department: 'Training',
+        },
+        tokens: {
+          userAccessToken: 'token-123',
+        },
+      },
+    })
+
+    chatService.getConversations = vi.fn().mockResolvedValue([])
+    chatService.getMessages = vi.fn().mockResolvedValue([])
+    chatService.sendMessageStream = vi.fn().mockResolvedValue(undefined)
+    onboardingService.completeChecklistTask.mockResolvedValue({ success: true })
+    trainingService.submitQuiz.mockResolvedValue({})
+    trainingService.getQuizResult.mockResolvedValue({})
+  })
+
+  it('keeps send disabled for empty input and enables it once trimmed text is present', async () => {
+    renderPage()
+
+    const user = userEvent.setup()
+    const composerInput = screen.getByPlaceholderText('Nhap tin nhan cua ban...')
+    const sendButton = screen.getByRole('button', { name: 'Gửi' })
+
+    expect(sendButton).toBeDisabled()
+
+    await user.type(composerInput, '   ')
+    expect(sendButton).toBeDisabled()
+
+    await user.type(composerInput, 'Xin chao')
+    expect(sendButton).toBeEnabled()
+  })
+
+  it('shows a busy send state only while the chat request is streaming', async () => {
+    const streamRequest = createDeferred()
+    chatService.sendMessageStream.mockImplementation(() => streamRequest.promise)
+
+    renderPage()
+
+    const user = userEvent.setup()
+    const composerInput = screen.getByPlaceholderText('Nhap tin nhan cua ban...')
+
+    await user.type(composerInput, 'Bao cao moi nhat la gi?')
+    await user.click(screen.getByRole('button', { name: 'Gửi' }))
+
+    expect(screen.getByRole('button', { name: 'Dang gui...' })).toBeDisabled()
+    expect(screen.getByPlaceholderText('Nhap tin nhan cua ban...')).toBeDisabled()
+    expect(chatService.sendMessageStream).toHaveBeenCalledWith(
+      'Bao cao moi nhat la gi?',
+      expect.stringMatching(/^session-user-1-/),
+      expect.any(Function),
+    )
+
+    streamRequest.resolve()
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Gửi' })).toBeDisabled()
+    })
+    expect(screen.getByPlaceholderText('Nhap tin nhan cua ban...')).toBeEnabled()
+  })
+
+  it('locks the composer while conversation history is loading', async () => {
+    const historyRequest = createDeferred()
+    chatService.getConversations.mockResolvedValue([
+      {
+        id: 'conv-1',
+        session_key: 'session-1',
+        started_at: '2026-03-23T10:00:00.000Z',
+        title: 'Old conversation',
+      },
+    ])
+    chatService.getMessages.mockImplementation(() => historyRequest.promise)
+
+    renderPage()
+
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: /Old conversation/i }))
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Nhap tin nhan cua ban...')).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Gửi' })).toBeDisabled()
+    })
+
+    historyRequest.resolve([])
+  })
+})
+
 describe('ChatDashboardPage quiz card', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -352,7 +462,7 @@ describe('ChatDashboardPage quiz card', () => {
 
     const user = userEvent.setup()
     await user.type(screen.getByPlaceholderText('Nhap tin nhan cua ban...'), 'Bao cao tien do dao tao phong Dev thang nay')
-    await user.click(screen.getByRole('button', { name: 'Gui' }))
+    await user.click(screen.getByRole('button', { name: 'Gửi' }))
 
     expect(await screen.findByText('Live Department Summary')).toBeInTheDocument()
     expect(screen.getByText('Day la tong hop analytics moi nhat.')).toBeInTheDocument()

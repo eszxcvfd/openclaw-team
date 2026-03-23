@@ -816,6 +816,7 @@ export const chatService = {
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
+    let streamError = null
 
     const processBuffer = (flush = false) => {
       const normalized = flush ? buffer : buffer.replace(/\r\n/g, '\n')
@@ -833,6 +834,11 @@ export const chatService = {
         }
 
         const jsonStr = dataLines.join('\n')
+        const eventName = segment
+          .split('\n')
+          .find((line) => line.startsWith('event:'))
+          ?.slice(6)
+          .trim()
 
         if (jsonStr === '[DONE]') {
           continue
@@ -840,6 +846,13 @@ export const chatService = {
 
         try {
           const eventData = JSON.parse(jsonStr)
+
+          if (eventName === 'error') {
+            const errorMessage = getFirstString(eventData?.message, eventData?.error, 'Stream error')
+            streamError = new Error(errorMessage)
+            continue
+          }
+
           const normalizedEvent = normalizeStreamEvent(eventData)
 
           if (normalizedEvent.textChunk) {
@@ -856,6 +869,11 @@ export const chatService = {
             })
           }
         } catch (error) {
+          if (eventName === 'error') {
+            streamError = new Error(jsonStr)
+            continue
+          }
+
           console.error('Error parsing SSE data', error)
         }
       }
@@ -867,11 +885,18 @@ export const chatService = {
       if (done) {
         buffer += decoder.decode()
         processBuffer(true)
+        if (streamError) {
+          throw streamError
+        }
         break
       }
 
       buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n')
       processBuffer()
+
+      if (streamError) {
+        throw streamError
+      }
     }
   },
 }

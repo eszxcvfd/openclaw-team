@@ -964,7 +964,7 @@ export function ChatDashboardPage() {
   }
 
   async function sendMessage(text) {
-    if (!text.trim() || isStreaming) {
+    if (!text.trim() || isStreaming || isFetchingConversationMessages) {
       return
     }
 
@@ -1057,81 +1057,77 @@ export function ChatDashboardPage() {
   }
 
   const isBusy = isStreaming || isFetchingConversationMessages
+  const hasComposerText = Boolean(inputValue.trim())
+  const isSendPending = isStreaming
+  const isComposerDisabled = isSendPending || isFetchingConversationMessages
+  const isSendDisabled = !hasComposerText || isComposerDisabled
 
   return (
-    <main className="dashboard-layout">
-      <aside className="dashboard-sidebar">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', height: '100%' }}>
+    <main className="dashboard-layout chat-dashboard-layout">
+      <aside className="dashboard-sidebar chat-dashboard-sidebar">
+        <div className="chat-dashboard-sidebar-shell">
           <button
-            className="submit-button"
-            style={{ minHeight: '3rem', width: '100%' }}
+            className="submit-button chat-dashboard-new-chat"
             onClick={handleNewChat}
           >
             + New Chat
           </button>
 
-          <div style={{ flex: 1, overflowY: 'auto', marginTop: '1rem' }}>
-            <p className="section-tag" style={{ marginBottom: '0.5rem' }}>History</p>
-            {isLoadingConversations ? (
-              <p style={{ color: 'var(--text-soft)', fontSize: '0.8rem' }}>Loading history...</p>
-            ) : (
-              <div style={{ display: 'grid', gap: '0.5rem' }}>
-                {conversations.map((conversation) => {
-                  const cachedMessages =
-                    queryClient.getQueryData(['conversation-messages', conversation.id]) || []
-                  const label = formatConversationLabel(conversation, cachedMessages)
-                  const isActive = currentConversationId === conversation.id
+          <div className="chat-dashboard-history">
+            <p className="section-tag chat-dashboard-history-title">History</p>
+            <div className="chat-dashboard-history-body">
+              {isLoadingConversations ? (
+                <p className="chat-dashboard-history-loading">Loading history...</p>
+              ) : (
+                <div className="chat-dashboard-history-list">
+                  {conversations.map((conversation) => {
+                    const cachedMessages =
+                      queryClient.getQueryData(['conversation-messages', conversation.id]) || []
+                    const label = formatConversationLabel(conversation, cachedMessages)
+                    const isActive = currentConversationId === conversation.id
 
-                  return (
-                    <button
-                      key={conversation.id}
-                      onClick={() => handleSelectConversation(conversation)}
-                      className={isActive ? 'conversation-card is-active' : 'conversation-card'}
-                      type="button"
-                    >
-                      <div className="conversation-card__title">{label}</div>
-                      <div className="conversation-card__meta">
-                        {new Date(conversation.started_at).toLocaleDateString()}
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
+                    return (
+                      <button
+                        key={conversation.id}
+                        onClick={() => handleSelectConversation(conversation)}
+                        className={isActive ? 'conversation-card is-active' : 'conversation-card'}
+                        type="button"
+                      >
+                        <div className="conversation-card__title">{label}</div>
+                        <div className="conversation-card__meta">
+                          {new Date(conversation.started_at).toLocaleDateString()}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
-          <div
-            className="identity-stack"
-            style={{
-              marginTop: 'auto',
-              paddingTop: '1rem',
-              borderTop: '1px solid rgba(255,255,255,0.1)',
-            }}
-          >
+          <div className="identity-stack chat-dashboard-sidebar-footer">
             <div>
-              <p className="section-tag" style={{ fontSize: '0.6rem' }}>Signed In As</p>
-              <h3 style={{ fontSize: '1rem', margin: '0.2rem 0' }}>{user?.fullName}</h3>
-              <p className="sidebar-copy" style={{ fontSize: '0.75rem' }}>
+              <p className="section-tag chat-dashboard-signed-in-tag">Signed In As</p>
+              <h3 className="chat-dashboard-user-name">{user?.fullName}</h3>
+              <p className="sidebar-copy chat-dashboard-user-meta">
                 {user?.role} • {user?.department}
               </p>
             </div>
 
-            <div style={{ display: 'grid', gap: '0.5rem', marginTop: '1rem' }}>
+            <div className="chat-dashboard-sidebar-actions">
               {isAdmin && (
                 <button
-                  className="ghost-button"
+                  className="ghost-button chat-dashboard-sidebar-action"
                   type="button"
                   onClick={() => navigate('/admin/roles')}
-                  style={{ minHeight: '2.5rem', fontSize: '0.85rem' }}
                 >
                   Manage Roles
                 </button>
               )}
               <button
-                className="ghost-button"
+                className="ghost-button chat-dashboard-sidebar-action"
                 type="button"
                 onClick={handleLogout}
-                style={{ minHeight: '2.5rem', fontSize: '0.85rem' }}
               >
                 Dang xuat
               </button>
@@ -1140,8 +1136,8 @@ export function ChatDashboardPage() {
         </div>
       </aside>
 
-      <section className="dashboard-main" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <header className="dashboard-hero" style={{ padding: '1.5rem', marginBottom: '1rem' }}>
+      <section className="dashboard-main chat-dashboard-main">
+        <header className="dashboard-hero chat-dashboard-hero">
           <p className="section-tag">AI Assistant</p>
           <h1>Xin chao, {user?.fullName}.</h1>
           <p className="panel-copy">
@@ -1149,25 +1145,14 @@ export function ChatDashboardPage() {
           </p>
         </header>
 
-        <section
-          className="dashboard-card chat-thread"
-          style={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            padding: '1.5rem',
-            gap: '1rem',
-            overflowY: 'auto',
-            maxHeight: 'calc(100vh - 350px)',
-          }}
-        >
+        <section className="dashboard-card chat-thread chat-thread-card">
           {isFetchingConversationMessages ? (
-            <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-soft)' }}>
+            <div className="chat-thread-state chat-thread-state--loading">
               Dang tai lich su hoi thoai...
             </div>
           ) : messages.length === 0 ? (
-            <div style={{ textAlign: 'center', marginTop: '2rem' }}>
-              <p style={{ color: 'var(--text-soft)', marginBottom: '1.5rem' }}>
+            <div className="chat-thread-state chat-thread-state--empty">
+              <p className="chat-thread-state-copy">
                 Chua co tin nhan nao. Thu bat dau voi mot cau hoi goi y duoi day:
               </p>
               <div className="suggestion-chip-row">
@@ -1190,7 +1175,7 @@ export function ChatDashboardPage() {
                 key={message.id || index}
                 message={message}
                 index={index}
-                isBusy={isBusy}
+                isBusy={isStreaming}
                 messagesLength={messages.length}
                 completingTaskIds={completingTaskIds}
                 taskErrors={taskErrors}
@@ -1206,31 +1191,21 @@ export function ChatDashboardPage() {
           <div ref={messagesEndRef} />
         </section>
 
-        <form
-          onSubmit={handleFormSubmit}
-          style={{
-            marginTop: '1rem',
-            display: 'flex',
-            gap: '1rem',
-            alignItems: 'center',
-          }}
-        >
+        <form className="chat-composer" onSubmit={handleFormSubmit}>
           <input
-            className="field-control"
+            className="field-control chat-composer__input"
             type="text"
             placeholder="Nhap tin nhan cua ban..."
             value={inputValue}
             onChange={(event) => setInputValue(event.target.value)}
-            disabled={isBusy}
-            style={{ flex: 1 }}
+            disabled={isComposerDisabled}
           />
           <button
-            className="submit-button"
+            className={isSendPending ? 'submit-button chat-composer__submit is-busy' : 'submit-button chat-composer__submit'}
             type="submit"
-            disabled={isBusy || !inputValue.trim()}
-            style={{ padding: '0 2rem', minWidth: 'auto' }}
+            disabled={isSendDisabled}
           >
-            {isBusy ? '...' : 'Gui'}
+            {isSendPending ? 'Dang gui...' : 'Gửi'}
           </button>
         </form>
       </section>
