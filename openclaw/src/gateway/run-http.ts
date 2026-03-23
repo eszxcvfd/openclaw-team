@@ -1,6 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { createDefaultDeps } from "../cli/deps.js";
 import { agentCommandFromIngress } from "../commands/agent.js";
+import {
+  toAgentRequestSessionKey,
+  toAgentStoreSessionKey,
+} from "../routing/session-key.js";
 import { defaultRuntime } from "../runtime.js";
 import type { AuthRateLimiter } from "./auth-rate-limit.js";
 import type { ResolvedGatewayAuth } from "./auth.js";
@@ -62,11 +66,15 @@ export async function handleRunHttpRequest(
 async function runOpenClawBusinessWorker(request: OpenClawRunRequest) {
   const prepared = prepareOpenClawWorkerRun(request);
   const deps = createDefaultDeps();
+  const requestSessionKey = toAgentRequestSessionKey(request.conversationId);
 
   const result = await agentCommandFromIngress(
     {
       message: request.message,
-      sessionKey: request.conversationId,
+      sessionKey: toAgentStoreSessionKey({
+        agentId: request.agentName,
+        requestKey: requestSessionKey,
+      }),
       runId: request.traceId,
       deliver: false,
       bestEffortDeliver: false,

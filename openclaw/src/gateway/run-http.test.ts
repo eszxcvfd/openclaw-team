@@ -112,11 +112,13 @@ describe("POST /run", () => {
     expect(agentCommandFromIngressMock).toHaveBeenCalledTimes(1);
     const ingressArgs = agentCommandFromIngressMock.mock.calls[0]?.[0] as {
       agentId?: string;
+      sessionKey?: string;
       executableTools?: Array<{ name: string }>;
       disableTools?: boolean;
       runtimeToolAllowlist?: string[];
     };
     expect(ingressArgs.agentId).toBe("learning_training_agent");
+    expect(ingressArgs.sessionKey).toBe("agent:learning_training_agent:conv-1");
     expect(ingressArgs.disableTools).toBe(true);
     expect(ingressArgs.executableTools?.map((tool) => tool.name)).toEqual([
       "generate_quiz",
@@ -124,5 +126,61 @@ describe("POST /run", () => {
     expect(ingressArgs.runtimeToolAllowlist).toEqual(["generate_quiz"]);
     expect(res.statusCode).toBe(200);
     expect(res.body).toContain("Quiz ready.");
+  });
+
+  it("re-scopes pre-qualified conversation keys to the request agent", async () => {
+    handleGatewayPostJsonEndpointMock.mockResolvedValueOnce({
+      body: {
+        agentName: "learning_training_agent",
+        message: "Resume the conversation",
+        context: {
+          user: {
+            id: "user-1",
+            fullName: "User One",
+            email: "user@example.com",
+            department: "Engineering",
+            position: "Developer",
+            roles: ["employee"],
+          },
+          session: {
+            conversationId: "agent:onboarding_assistant:conv-1",
+            agentGroup: "learning_training_agent",
+            startedAt: "2026-03-23T00:00:00.000Z",
+            messageCount: 1,
+            recentTurns: [],
+          },
+          allowedResources: {
+            documents: [],
+            tools: [],
+            scopes: [],
+          },
+        },
+        internalToken: "internal-token",
+        conversationId: "agent:onboarding_assistant:conv-1",
+        userId: "user-1",
+        traceId: "trace-2",
+        backendBaseUrl: "http://backend:3001",
+      },
+    });
+    agentCommandFromIngressMock.mockResolvedValueOnce({
+      payloads: [{ text: "Resumed." }],
+    });
+    const res = createResponseDouble();
+
+    const result = await handleRunHttpRequest(
+      { headers: { host: "localhost" } } as never,
+      res as never,
+      { auth: {} as never },
+    );
+
+    expect(result).toBe(true);
+    const ingressArgs = agentCommandFromIngressMock.mock.calls[0]?.[0] as {
+      agentId?: string;
+      sessionKey?: string;
+    };
+    expect(ingressArgs.agentId).toBe("learning_training_agent");
+    expect(ingressArgs.sessionKey).toBe("agent:learning_training_agent:conv-1");
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toContain("Resumed.");
   });
 });
