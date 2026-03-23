@@ -35,23 +35,33 @@ export interface BuiltPromptContext {
   };
 }
 
+export interface BuildContextOptions {
+  agentGroup?: string | null;
+  allowedResources?: Partial<BuiltPromptContext['allowedResources']>;
+}
+
 @Injectable()
 export class ContextBuilderService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async build(userId: string, conversationId: string): Promise<BuiltPromptContext> {
-    const [user, session] = await Promise.all([
+  async build(
+    userId: string,
+    conversationId: string,
+    options: BuildContextOptions = {},
+  ): Promise<BuiltPromptContext> {
+    const [user, session, documents] = await Promise.all([
       this.buildUserContext(userId),
-      this.buildConversationContext(conversationId),
+      this.buildConversationContext(conversationId, options.agentGroup),
+      this.buildAllowedDocuments(userId),
     ]);
 
     return {
       user,
       session,
       allowedResources: {
-        documents: [],
-        tools: [],
-        scopes: [],
+        documents,
+        tools: options.allowedResources?.tools ?? [],
+        scopes: options.allowedResources?.scopes ?? [],
       },
     };
   }
@@ -86,6 +96,7 @@ export class ContextBuilderService {
 
   async buildConversationContext(
     conversationId: string,
+    agentGroupOverride?: string | null,
   ): Promise<BuiltConversationContext> {
     const conversation = await this.prisma.conversations.findUnique({
       where: { id: conversationId },
@@ -113,7 +124,7 @@ export class ContextBuilderService {
 
     return {
       conversationId: conversation.id,
-      agentGroup: conversation.agent_groups?.code ?? null,
+      agentGroup: agentGroupOverride ?? conversation.agent_groups?.code ?? null,
       startedAt: conversation.started_at.toISOString(),
       messageCount: conversation._count.messages,
       recentTurns: recentMessages.reverse().map((message) => ({
@@ -123,5 +134,44 @@ export class ContextBuilderService {
         createdAt: message.created_at.toISOString(),
       })),
     };
+  }
+
+  private async buildAllowedDocuments(userId: string) {
+    const roleAssignments = await this.prisma.user_roles.findMany({
+      where: {
+        user_id: userId,
+      },
+      select: {
+        role_id: true,
+      },
+    });
+
+    if (roleAssignments.length === 0) {
+      return [];
+    }
+
+    const documents = await this.prisma.documents.findMany({
+      where: {
+        is_active: true,
+        document_permissions: {
+          some: {
+            role_id: {
+              in: roleAssignments.map((entry) => entry.role_id),
+            },
+            can_view: true,
+          },
+        },
+      },
+      select: {
+        code: true,
+      },
+      orderBy: {
+        code: 'asc',
+      },
+    });
+
+    return documents
+      .map((document) => document.code?.trim())
+      .filter((document): document is string => Boolean(document));
   }
 }

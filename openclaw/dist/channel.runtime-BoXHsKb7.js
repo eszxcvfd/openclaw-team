@@ -1,0 +1,30 @@
+import "./logger-BG-0yWA-.js";
+import "./paths-GHJ97ebE.js";
+import "./theme-CWrxY1-_.js";
+import "./globals-Ca-8xJiD.js";
+import "./subsystem-YgTuVQVh.js";
+import "./ansi-cwY8Vrne.js";
+import "./utils-DzdaH7JM.js";
+import "./links-g7g5mVf0.js";
+import "./boundary-path-BVHzCDEE.js";
+import "./boundary-file-read-1knRHcS0.js";
+import "./logger-CSnzpOlU.js";
+import "./exec-vhyLuPtA.js";
+import "./workspace-OTiuBtkV.js";
+import "./agent-scope-VMfvxKRt.js";
+import "./registry-COOqBSUM.js";
+import "./base-session-key-C3_WT8uY.js";
+import "./secret-input-Ua-MPZgk.js";
+import "./routing-CDtOgmV-.js";
+import "./message-channel-BJH5Ixzm.js";
+import "./token-B-rUAWAb.js";
+import "./fs-safe-D0QOk-pp.js";
+import "./path-alias-guards-Bygz_LWl.js";
+import "./setup-binary-BX-g_f5x.js";
+import "./signal-cli-install-saUNAk6k.js";
+import "./setup-tools-DQ8qWjwb.js";
+import { n as createDiscordSetupWizardProxy } from "./setup-core-B3EaVXb-.js";
+//#region extensions/discord/src/channel.runtime.ts
+const discordSetupWizard = createDiscordSetupWizardProxy(async () => (await import("./setup-surface-DknWMGgN.js")).discordSetupWizard);
+//#endregion
+export { discordSetupWizard };

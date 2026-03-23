@@ -1,23 +1,23 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { AgentRouterService } from '../agent-router/agent-router.service';
 import { InternalTokenService } from '../auth/internal-token.service';
 import { ContextBuilderService } from '../context-builder/context-builder.service';
 import { OpenclawService } from '../openclaw/openclaw.service';
-import { TrainingService } from '../training/training.service';
 import { ChatService } from './chat.service';
 import { ConversationService } from './conversation.service';
 
 describe('ChatService', () => {
   let service: ChatService;
   let conversationService: {
+    findConversationBySession: jest.Mock;
     getOrCreateConversation: jest.Mock;
     saveMessage: jest.Mock;
   };
+  let agentRouterService: {
+    routeMessage: jest.Mock;
+  };
   let contextBuilderService: {
     build: jest.Mock;
-  };
-  let trainingService: {
-    generateQuizForUser: jest.Mock;
-    generateLearningPathForUser: jest.Mock;
   };
   let internalTokenService: {
     createToken: jest.Mock;
@@ -30,17 +30,17 @@ describe('ChatService', () => {
     jest.useFakeTimers();
 
     conversationService = {
+      findConversationBySession: jest.fn(),
       getOrCreateConversation: jest.fn(),
       saveMessage: jest.fn(),
     };
 
-    contextBuilderService = {
-      build: jest.fn(),
+    agentRouterService = {
+      routeMessage: jest.fn(),
     };
 
-    trainingService = {
-      generateQuizForUser: jest.fn(),
-      generateLearningPathForUser: jest.fn(),
+    contextBuilderService = {
+      build: jest.fn(),
     };
 
     internalTokenService = {
@@ -63,8 +63,8 @@ describe('ChatService', () => {
           useValue: contextBuilderService,
         },
         {
-          provide: TrainingService,
-          useValue: trainingService,
+          provide: AgentRouterService,
+          useValue: agentRouterService,
         },
         {
           provide: InternalTokenService,
@@ -86,17 +86,35 @@ describe('ChatService', () => {
   });
 
   it('should build prompt context before completing the mock response', async () => {
+    agentRouterService.routeMessage.mockResolvedValue({
+      agentGroup: 'learning_training_agent',
+      allowedResources: {
+        documents: [],
+        tools: ['get_training_recommendations'],
+        scopes: ['read:training'],
+      },
+      allowedAgentGroups: ['learning_training_agent'],
+      classificationSource: 'rule',
+    });
     conversationService.getOrCreateConversation.mockResolvedValue({
       id: 'conv-1',
     });
+    conversationService.findConversationBySession.mockResolvedValue(null);
     conversationService.saveMessage.mockResolvedValue(undefined);
     contextBuilderService.build.mockResolvedValue({
       user: { id: 'user-1' },
       session: { conversationId: 'conv-1' },
-      allowedResources: { documents: [], tools: [], scopes: [] },
+      allowedResources: {
+        documents: [],
+        tools: ['get_training_recommendations'],
+        scopes: ['read:training'],
+      },
     });
-    trainingService.generateQuizForUser.mockResolvedValue(null);
-    trainingService.generateLearningPathForUser.mockResolvedValue(null);
+    internalTokenService.createToken.mockResolvedValue('internal-token-0');
+    openclawService.run.mockResolvedValue({
+      text: 'Xin chao, toi da tiep nhan yeu cau cua ban.',
+      uiPayload: null,
+    });
 
     const stream = await service.processMessage(
       'user-1',
@@ -114,7 +132,23 @@ describe('ChatService', () => {
     await jest.runAllTimersAsync();
     await completion;
 
-    expect(contextBuilderService.build).toHaveBeenCalledWith('user-1', 'conv-1');
+    expect(contextBuilderService.build).toHaveBeenCalledWith(
+      'user-1',
+      'conv-1',
+      {
+        agentGroup: 'learning_training_agent',
+        allowedResources: {
+          documents: [],
+          tools: ['get_training_recommendations'],
+          scopes: ['read:training'],
+        },
+      },
+    );
+    expect(agentRouterService.routeMessage).toHaveBeenCalledWith({
+      userId: 'user-1',
+      message: 'Xin chao',
+      currentAgentGroup: null,
+    });
     expect(conversationService.saveMessage).toHaveBeenNthCalledWith(
       1,
       'conv-1',
@@ -127,166 +161,45 @@ describe('ChatService', () => {
       'assistant',
       expect.any(String),
       undefined,
-        {
-          orchestration: 'mock',
-          uiPayloadVersion: null,
-          uiPayload: null,
-        },
-      );
-    });
-
-  it('should emit and persist versioned quiz uiPayload metadata for quiz-like requests', async () => {
-    conversationService.getOrCreateConversation.mockResolvedValue({
-      id: 'conv-quiz',
-    });
-    conversationService.saveMessage.mockResolvedValue(undefined);
-    contextBuilderService.build.mockResolvedValue({
-      user: { id: 'user-1' },
-      session: { conversationId: 'conv-quiz' },
-      allowedResources: { documents: [], tools: [], scopes: [] },
-    });
-    trainingService.generateQuizForUser.mockResolvedValue({
-      type: 'quiz',
-      version: 1,
-      quizId: 'quiz-1',
-      templateCode: 'nodejs-basics',
-      title: 'NodeJS Basics',
-      difficulty: 'easy',
-      course: null,
-      questionCount: 1,
-      questions: [],
-    });
-
-    const stream = await service.processMessage(
-      'user-1',
-      'Tao mini quiz NodeJS cho toi',
-      'session-quiz',
-    );
-    const events: any[] = [];
-    const completion = new Promise<void>((resolve, reject) => {
-      stream.subscribe({
-        next: (event) => events.push(event),
-        complete: resolve,
-        error: reject,
-      });
-    });
-
-    await jest.runAllTimersAsync();
-    await completion;
-
-    expect(trainingService.generateQuizForUser).toHaveBeenCalledWith('user-1', {
-      queryText: 'Tao mini quiz NodeJS cho toi',
-    });
-    expect(
-      events.some((event) => event?.data?.uiPayload?.type === 'quiz'),
-    ).toBe(true);
-    expect(conversationService.saveMessage).toHaveBeenLastCalledWith(
-      'conv-quiz',
-      'assistant',
-      expect.stringContaining('mini quiz'),
-      undefined,
       expect.objectContaining({
-        orchestration: 'mock',
-        uiPayloadVersion: 1,
-        uiPayload: expect.objectContaining({
-          type: 'quiz',
-          quizId: 'quiz-1',
-        }),
+        orchestration: 'openclaw',
+        agentName: 'learning_training_agent',
+        uiPayloadVersion: null,
+        uiPayload: null,
       }),
     );
   });
 
-  it('should emit and persist versioned learning-path uiPayload metadata for recommendation requests', async () => {
-    conversationService.getOrCreateConversation.mockResolvedValue({
-      id: 'conv-path',
-    });
-    conversationService.saveMessage.mockResolvedValue(undefined);
-    contextBuilderService.build.mockResolvedValue({
-      user: { id: 'user-1' },
-      session: { conversationId: 'conv-path' },
-      allowedResources: { documents: [], tools: [], scopes: [] },
-    });
-    trainingService.generateQuizForUser.mockResolvedValue(null);
-    trainingService.generateLearningPathForUser.mockResolvedValue({
-      id: 'path-1',
-      name: 'Backend Intern Path',
-      generated: true,
-      summary: 'Bat dau voi Product Overview.',
-      payload: {
-        type: 'learning-path',
-        version: 1,
-        pathId: 'path-1',
-        title: 'Backend Intern Path',
-        description: 'Lo trinh hoc ca nhan hoa',
-        contextLabel: 'Gap: Node.js',
-        generated: true,
-        items: [
-          {
-            orderNo: 1,
-            courseId: 'course-1',
-            courseCode: 'prod-overview',
-            courseTitle: 'Product Overview',
-            required: true,
-            reason: 'Mon nen tang bat buoc',
-            estimatedHours: 2,
-            status: 'not_started',
-          },
-        ],
-        summary: 'Bat dau voi Product Overview.',
+  it('should route analytics requests through OpenClaw with scoped token', async () => {
+    agentRouterService.routeMessage.mockResolvedValue({
+      agentGroup: 'training_analytics_agent',
+      allowedResources: {
+        documents: [],
+        tools: ['get_department_training_analytics'],
+        scopes: ['read:analytics'],
       },
-      items: [],
+      allowedAgentGroups: ['training_analytics_agent'],
+      classificationSource: 'rule',
     });
-
-    const stream = await service.processMessage(
-      'user-1',
-      'Toi nen hoc khoa nao truoc?',
-      'session-path',
-    );
-    const events: any[] = [];
-    const completion = new Promise<void>((resolve, reject) => {
-      stream.subscribe({
-        next: (event) => events.push(event),
-        complete: resolve,
-        error: reject,
-      });
-    });
-
-    await jest.runAllTimersAsync();
-    await completion;
-
-    expect(trainingService.generateLearningPathForUser).toHaveBeenCalledWith('user-1', {
-      queryText: 'Toi nen hoc khoa nao truoc?',
-      includeMandatoryCourses: true,
-    });
-    expect(events.some((event) => event?.data?.uiPayload?.type === 'learning-path')).toBe(true);
-    expect(conversationService.saveMessage).toHaveBeenLastCalledWith(
-      'conv-path',
-      'assistant',
-      expect.stringContaining('lo trinh'),
-      undefined,
-      expect.objectContaining({
-        orchestration: 'mock',
-        uiPayloadVersion: 1,
-        uiPayload: expect.objectContaining({
-          type: 'learning-path',
-          pathId: 'path-1',
-        }),
-      }),
-    );
-  });
-
-  it('should degrade analytics requests to chat-safe text until agent orchestration is available', async () => {
     conversationService.getOrCreateConversation.mockResolvedValue({
       id: 'conv-analytics',
+    });
+    conversationService.findConversationBySession.mockResolvedValue({
+      id: 'conv-analytics',
+      agent_groups: {
+        code: 'training_analytics_agent',
+      },
     });
     conversationService.saveMessage.mockResolvedValue(undefined);
     contextBuilderService.build.mockResolvedValue({
       user: { id: 'manager-1' },
       session: { conversationId: 'conv-analytics' },
-      allowedResources: { documents: [], tools: [], scopes: [] },
+      allowedResources: {
+        documents: [],
+        tools: ['get_department_training_analytics'],
+        scopes: ['read:analytics'],
+      },
     });
-    trainingService.generateQuizForUser.mockResolvedValue(null);
-    trainingService.generateLearningPathForUser.mockResolvedValue(null);
     internalTokenService.createToken.mockResolvedValue('internal-token-1');
     openclawService.run.mockResolvedValue({
       text: 'Bao cao phong ban da san sang.',
@@ -362,18 +275,31 @@ describe('ChatService', () => {
     );
   });
 
-  it('should degrade analytics requests to chat-safe text when OpenClaw orchestration fails', async () => {
+  it('should degrade to safe fallback text when OpenClaw orchestration fails', async () => {
+    agentRouterService.routeMessage.mockResolvedValue({
+      agentGroup: 'training_analytics_agent',
+      allowedResources: {
+        documents: [],
+        tools: ['get_department_training_analytics'],
+        scopes: ['read:analytics'],
+      },
+      allowedAgentGroups: ['training_analytics_agent'],
+      classificationSource: 'rule',
+    });
     conversationService.getOrCreateConversation.mockResolvedValue({
       id: 'conv-analytics-fallback',
     });
+    conversationService.findConversationBySession.mockResolvedValue(null);
     conversationService.saveMessage.mockResolvedValue(undefined);
     contextBuilderService.build.mockResolvedValue({
       user: { id: 'manager-1' },
       session: { conversationId: 'conv-analytics-fallback' },
-      allowedResources: { documents: [], tools: [], scopes: [] },
+      allowedResources: {
+        documents: [],
+        tools: ['get_department_training_analytics'],
+        scopes: ['read:analytics'],
+      },
     });
-    trainingService.generateQuizForUser.mockResolvedValue(null);
-    trainingService.generateLearningPathForUser.mockResolvedValue(null);
     internalTokenService.createToken.mockResolvedValue('internal-token-2');
     openclawService.run.mockRejectedValue(new Error('OpenClaw unavailable'));
 
@@ -398,7 +324,7 @@ describe('ChatService', () => {
     expect(conversationService.saveMessage).toHaveBeenLastCalledWith(
       'conv-analytics-fallback',
       'assistant',
-      'Khong the tai bao cao analytics luc nay. Vui long thu lai sau.',
+      'Khong the xu ly yeu cau qua OpenClaw luc nay. Vui long thu lai sau.',
       undefined,
       expect.objectContaining({
         orchestration: 'openclaw-fallback',

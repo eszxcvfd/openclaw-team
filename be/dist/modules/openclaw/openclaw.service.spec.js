@@ -77,6 +77,7 @@ describe('OpenclawService', () => {
             conversationId: 'conv-1',
             userId: 'manager-1',
             traceId: 'trace-1',
+            backendBaseUrl: 'http://backend:3001',
         });
         expect(global.fetch).toHaveBeenCalledWith('http://openclaw:8080/run', expect.objectContaining({
             method: 'POST',
@@ -124,6 +125,7 @@ describe('OpenclawService', () => {
             conversationId: 'conv-1',
             userId: 'manager-1',
             traceId: 'trace-1',
+            backendBaseUrl: 'http://backend:3001',
         })).rejects.toBeInstanceOf(common_1.ServiceUnavailableException);
     });
 });

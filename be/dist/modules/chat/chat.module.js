@@ -11,16 +11,16 @@ const common_1 = require("@nestjs/common");
 const chat_controller_1 = require("./chat.controller");
 const chat_service_1 = require("./chat.service");
 const conversation_service_1 = require("./conversation.service");
+const agent_router_module_1 = require("../agent-router/agent-router.module");
 const auth_module_1 = require("../auth/auth.module");
 const context_builder_module_1 = require("../context-builder/context-builder.module");
 const openclaw_module_1 = require("../openclaw/openclaw.module");
-const training_module_1 = require("../training/training.module");
 let ChatModule = class ChatModule {
 };
 exports.ChatModule = ChatModule;
 exports.ChatModule = ChatModule = __decorate([
     (0, common_1.Module)({
-        imports: [auth_module_1.AuthModule, context_builder_module_1.ContextBuilderModule, training_module_1.TrainingModule, openclaw_module_1.OpenclawModule],
+        imports: [auth_module_1.AuthModule, agent_router_module_1.AgentRouterModule, context_builder_module_1.ContextBuilderModule, openclaw_module_1.OpenclawModule],
         controllers: [chat_controller_1.ChatController],
         providers: [chat_service_1.ChatService, conversation_service_1.ConversationService],
         exports: [chat_service_1.ChatService, conversation_service_1.ConversationService],

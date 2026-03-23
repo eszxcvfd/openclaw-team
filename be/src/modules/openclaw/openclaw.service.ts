@@ -11,6 +11,7 @@ export interface OpenclawRunRequest {
   conversationId: string;
   userId: string;
   traceId: string;
+  backendBaseUrl: string;
 }
 
 export interface OpenclawRunResponse {

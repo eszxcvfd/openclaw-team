@@ -2,6 +2,7 @@ import { codingTools, createReadTool, readTool } from "@mariozechner/pi-coding-a
 import type { OpenClawConfig } from "../config/config.js";
 import type { ModelCompatConfig } from "../config/types.models.js";
 import type { ToolLoopDetectionConfig } from "../config/types.tools.js";
+import { getBackendRunContext } from "../backend-orchestration/run-context.js";
 import { resolveMergedSafeBinProfileFixtures } from "../infra/exec-safe-bin-runtime-policy.js";
 import { logWarn } from "../logger.js";
 import { getPluginToolMeta } from "../plugins/tools.js";
@@ -46,6 +47,7 @@ import {
 import { cleanToolSchemaForGemini, normalizeToolParameters } from "./pi-tools.schema.js";
 import type { AnyAgentTool } from "./pi-tools.types.js";
 import type { SandboxContext } from "./sandbox.js";
+import { createBackendInternalTools } from "./tools/backend-internal-tools.js";
 import { createToolFsPolicy, resolveToolFsConfig } from "./tool-fs-policy.js";
 import {
   applyToolPolicyPipeline,
@@ -367,6 +369,31 @@ export function createOpenClawCodingTools(options?: {
     throw new Error("Sandbox filesystem bridge is unavailable.");
   }
   const imageSanitization = resolveImageSanitizationLimits(options?.config);
+  const backendRunContext = getBackendRunContext(options?.runId);
+
+  if (backendRunContext) {
+    const backendTools = createBackendInternalTools({ runId: options?.runId });
+    const normalized = backendTools.map((tool) =>
+      normalizeToolParameters(tool, {
+        modelProvider: options?.modelProvider,
+        modelId: options?.modelId,
+        modelCompat: options?.modelCompat,
+      }),
+    );
+    const withHooks = normalized.map((tool) =>
+      wrapToolWithBeforeToolCallHook(tool, {
+        agentId,
+        sessionKey: options?.sessionKey,
+        sessionId: options?.sessionId,
+        runId: options?.runId,
+        loopDetection: resolveToolLoopDetectionConfig({ cfg: options?.config, agentId }),
+      }),
+    );
+
+    return options?.abortSignal
+      ? withHooks.map((tool) => wrapToolWithAbortSignal(tool, options.abortSignal))
+      : withHooks;
+  }
 
   const base = (codingTools as unknown as AnyAgentTool[]).flatMap((tool) => {
     if (tool.name === readTool.name) {
@@ -539,6 +566,7 @@ export function createOpenClawCodingTools(options?: {
       requesterSenderId: options?.senderId,
       senderIsOwner: options?.senderIsOwner,
       sessionId: options?.sessionId,
+      runId: options?.runId,
       onYield: options?.onYield,
       allowGatewaySubagentBinding: options?.allowGatewaySubagentBinding,
     }),

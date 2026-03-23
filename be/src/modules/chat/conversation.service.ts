@@ -8,9 +8,25 @@ type MessageMetadata = Prisma.InputJsonObject;
 export class ConversationService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async findConversationBySession(userId: string, sessionKey?: string) {
+    const key = sessionKey || `default-${userId}`;
+
+    return this.prisma.conversations.findUnique({
+      where: {
+        user_id_session_key: {
+          user_id: userId,
+          session_key: key,
+        },
+      },
+      include: {
+        agent_groups: true,
+      },
+    });
+  }
+
   async getOrCreateConversation(userId: string, agentGroupCode?: string, sessionKey?: string) {
     const key = sessionKey || `default-${userId}`;
-    
+
     let agentGroupId = null;
     if (agentGroupCode) {
       const group = await this.prisma.agent_groups.findUnique({
@@ -28,6 +44,7 @@ export class ConversationService {
       },
       update: {
         status: 'open',
+        agent_group_id: agentGroupId,
       },
       create: {
         user_id: userId,

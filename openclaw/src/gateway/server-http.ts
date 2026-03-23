@@ -52,6 +52,7 @@ import {
   resolveHookChannel,
   resolveHookDeliver,
 } from "./hooks.js";
+import { handleBackendRunHttpRequest } from "./backend-run-http.js";
 import { sendGatewayAuthFailure, setDefaultSecurityHeaders } from "./http-common.js";
 import { getBearerToken } from "./http-utils.js";
 import { resolveRequestClientIp } from "./net.js";
@@ -796,6 +797,16 @@ export function createGatewayHttpServer(opts: {
           name: "tools-invoke",
           run: () =>
             handleToolsInvokeHttpRequest(req, res, {
+              auth: resolvedAuth,
+              trustedProxies,
+              allowRealIpFallback,
+              rateLimiter,
+            }),
+        },
+        {
+          name: "backend-run",
+          run: () =>
+            handleBackendRunHttpRequest(req, res, {
               auth: resolvedAuth,
               trustedProxies,
               allowRealIpFallback,
