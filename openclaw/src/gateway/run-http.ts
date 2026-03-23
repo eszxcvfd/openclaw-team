@@ -77,6 +77,7 @@ async function runOpenClawBusinessWorker(request: OpenClawRunRequest) {
       extraSystemPrompt: prepared.extraSystemPrompt,
       executableTools: prepared.tools,
       disableTools: true,
+      runtimeToolAllowlist: prepared.tools.map((tool) => tool.name),
     },
     defaultRuntime,
     deps,

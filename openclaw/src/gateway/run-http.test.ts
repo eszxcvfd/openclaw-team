@@ -114,12 +114,14 @@ describe("POST /run", () => {
       agentId?: string;
       executableTools?: Array<{ name: string }>;
       disableTools?: boolean;
+      runtimeToolAllowlist?: string[];
     };
     expect(ingressArgs.agentId).toBe("learning_training_agent");
     expect(ingressArgs.disableTools).toBe(true);
     expect(ingressArgs.executableTools?.map((tool) => tool.name)).toEqual([
       "generate_quiz",
     ]);
+    expect(ingressArgs.runtimeToolAllowlist).toEqual(["generate_quiz"]);
     expect(res.statusCode).toBe(200);
     expect(res.body).toContain("Quiz ready.");
   });

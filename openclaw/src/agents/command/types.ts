@@ -42,6 +42,8 @@ export type AgentCommandOpts = {
   executableTools?: AnyAgentTool[];
   /** Disable built-in tools and use only explicitly injected tools for this run. */
   disableTools?: boolean;
+  /** Restrict runtime-exposed tools to this exact allowlist when provided. */
+  runtimeToolAllowlist?: string[];
   /** Agent id override (must exist in config). */
   agentId?: string;
   /** Per-run provider override. */

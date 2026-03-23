@@ -7,6 +7,7 @@ import {
   buildAfterTurnRuntimeContext,
   buildSessionsYieldContextMessage,
   composeSystemPromptWithHookContext,
+  filterRuntimeToolsToAllowlist,
   persistSessionsYieldContextMessage,
   isOllamaCompatProvider,
   prependSystemPromptAddition,
@@ -143,6 +144,39 @@ describe("resolvePromptBuildHookResult", () => {
     expect(result.prependContext).toBe("prompt context\n\nlegacy context");
     expect(result.prependSystemContext).toBe("prompt prepend\n\nlegacy prepend");
     expect(result.appendSystemContext).toBe("prompt append\n\nlegacy append");
+  });
+});
+
+describe("filterRuntimeToolsToAllowlist", () => {
+  it("keeps only tools whose names are explicitly allowlisted", () => {
+    const tools = [
+      { name: "generate_quiz", description: "Generate quiz" },
+      { name: "get_my_learning_path", description: "Get path" },
+    ];
+
+    expect(
+      filterRuntimeToolsToAllowlist({
+        tools,
+        runtimeToolAllowlist: ["generate_quiz"],
+      }),
+    ).toEqual([{ name: "generate_quiz", description: "Generate quiz" }]);
+  });
+
+  it("fails closed when an explicit allowlist is empty", () => {
+    const tools = [{ name: "generate_quiz" }];
+
+    expect(
+      filterRuntimeToolsToAllowlist({
+        tools,
+        runtimeToolAllowlist: [],
+      }),
+    ).toEqual([]);
+  });
+
+  it("leaves the tool list unchanged when no allowlist is provided", () => {
+    const tools = [{ name: "generate_quiz" }, { name: "get_my_learning_path" }];
+
+    expect(filterRuntimeToolsToAllowlist({ tools })).toEqual(tools);
   });
 });
 

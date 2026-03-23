@@ -514,6 +514,7 @@ function runAgentAttempt(params: {
     clientTools: params.opts.clientTools,
     executableTools: params.opts.executableTools,
     disableTools: params.opts.disableTools,
+    runtimeToolAllowlist: params.opts.runtimeToolAllowlist,
     provider: params.providerOverride,
     model: params.modelOverride,
     authProfileId,

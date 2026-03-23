@@ -79,6 +79,8 @@ export type RunEmbeddedPiAgentParams = {
   executableTools?: AnyAgentTool[];
   /** Disable built-in OpenClaw tools for this run while still allowing injected tools. */
   disableTools?: boolean;
+  /** Restrict runtime-exposed tools to this exact allowlist when provided. */
+  runtimeToolAllowlist?: string[];
   provider?: string;
   model?: string;
   authProfileId?: string;

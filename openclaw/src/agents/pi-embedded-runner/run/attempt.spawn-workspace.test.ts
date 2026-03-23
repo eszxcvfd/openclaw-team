@@ -570,6 +570,20 @@ function expectCalledWithSessionKey(mock: ReturnType<typeof vi.fn>, sessionKey: 
   );
 }
 
+function createAuthStorageDouble(): AuthStorage {
+  return {
+    getApiKey: vi.fn(async (provider?: string) => `${provider ?? "test"}-api-key`),
+  } as unknown as AuthStorage;
+}
+
+function createModelRegistryDouble(): ModelRegistry {
+  return {
+    find: vi.fn(() => null),
+    getApiKey: vi.fn(async (model?: { provider?: string }) => `${model?.provider ?? "test"}-api-key`),
+    isUsingOAuth: vi.fn(() => false),
+  } as unknown as ModelRegistry;
+}
+
 const testModel = {
   api: "openai-completions",
   provider: "openai",
@@ -656,8 +670,8 @@ describe("runEmbeddedAttempt sessions_spawn workspace inheritance", () => {
       provider: "openai",
       modelId: "gpt-test",
       model: testModel,
-      authStorage: {} as AuthStorage,
-      modelRegistry: {} as ModelRegistry,
+      authStorage: createAuthStorageDouble(),
+      modelRegistry: createModelRegistryDouble(),
       thinkLevel: "off",
       senderIsOwner: true,
       disableMessageTool: true,
@@ -752,8 +766,8 @@ describe("runEmbeddedAttempt bootstrap warning prompt assembly", () => {
       provider: "openai",
       modelId: "gpt-test",
       model: testModel,
-      authStorage: {} as AuthStorage,
-      modelRegistry: {} as ModelRegistry,
+      authStorage: createAuthStorageDouble(),
+      modelRegistry: createModelRegistryDouble(),
       thinkLevel: "off",
       senderIsOwner: true,
       disableMessageTool: true,
@@ -818,8 +832,8 @@ describe("runEmbeddedAttempt tool exposure", () => {
       provider: "openai",
       modelId: "gpt-test",
       model: testModel,
-      authStorage: {} as AuthStorage,
-      modelRegistry: {} as ModelRegistry,
+      authStorage: createAuthStorageDouble(),
+      modelRegistry: createModelRegistryDouble(),
       thinkLevel: "off",
       senderIsOwner: true,
       disableMessageTool: true,
@@ -830,6 +844,7 @@ describe("runEmbeddedAttempt tool exposure", () => {
     expect(result.promptError).toBeNull();
     expect(hoisted.createAgentSessionMock).toHaveBeenCalledTimes(1);
   });
+
 });
 
 describe("runEmbeddedAttempt cache-ttl tracking after compaction", () => {
@@ -881,8 +896,8 @@ describe("runEmbeddedAttempt cache-ttl tracking after compaction", () => {
       provider: "anthropic",
       modelId: "claude-sonnet-4-20250514",
       model: cacheTtlEligibleModel,
-      authStorage: {} as AuthStorage,
-      modelRegistry: {} as ModelRegistry,
+      authStorage: createAuthStorageDouble(),
+      modelRegistry: createModelRegistryDouble(),
       thinkLevel: "off",
       senderIsOwner: true,
       disableMessageTool: true,
@@ -1043,8 +1058,8 @@ describe("runEmbeddedAttempt context engine sessionKey forwarding", () => {
       provider: "openai",
       modelId: "gpt-test",
       model: testModel,
-      authStorage: {} as AuthStorage,
-      modelRegistry: {} as ModelRegistry,
+      authStorage: createAuthStorageDouble(),
+      modelRegistry: createModelRegistryDouble(),
       thinkLevel: "off",
       senderIsOwner: true,
       disableMessageTool: true,

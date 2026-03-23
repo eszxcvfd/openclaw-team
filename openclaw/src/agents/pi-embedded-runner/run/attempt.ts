@@ -515,6 +515,31 @@ function resolveExactAllowedToolName(
   );
 }
 
+export function filterRuntimeToolsToAllowlist<T extends { name?: string }>(params: {
+  tools: T[];
+  runtimeToolAllowlist?: string[];
+}): T[] {
+  const allowlist = params.runtimeToolAllowlist;
+  if (!allowlist) {
+    return params.tools;
+  }
+
+  const allowedToolNames = new Set(
+    allowlist.map((name) => name.trim()).filter((name) => name.length > 0),
+  );
+
+  if (allowedToolNames.size === 0) {
+    return [];
+  }
+
+  return params.tools.filter((tool) => {
+    if (typeof tool.name !== "string") {
+      return false;
+    }
+    return resolveExactAllowedToolName(tool.name, allowedToolNames) !== null;
+  });
+}
+
 function buildStructuredToolNameCandidates(rawName: string): string[] {
   const trimmed = rawName.trim();
   if (!trimmed) {
@@ -1824,10 +1849,17 @@ export async function runEmbeddedAttempt(
             abortSessionForYield?.();
           },
         });
-    const executableTools = params.executableTools ?? [];
+    const executableTools = filterRuntimeToolsToAllowlist({
+      tools: params.executableTools ?? [],
+      runtimeToolAllowlist: params.runtimeToolAllowlist,
+    });
     const toolsEnabled = supportsModelTools(params.model);
-    const tools = sanitizeToolsForGoogle({
+    const runtimeTools = filterRuntimeToolsToAllowlist({
       tools: toolsEnabled ? [...toolsRaw, ...executableTools] : [],
+      runtimeToolAllowlist: params.runtimeToolAllowlist,
+    });
+    const tools = sanitizeToolsForGoogle({
+      tools: runtimeTools,
       provider: params.provider,
     });
     const clientTools = toolsEnabled ? params.clientTools : undefined;
