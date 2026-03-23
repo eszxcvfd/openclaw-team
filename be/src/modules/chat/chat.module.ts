@@ -4,10 +4,11 @@ import { ChatService } from './chat.service';
 import { ConversationService } from './conversation.service';
 import { AuthModule } from '../auth/auth.module';
 import { ContextBuilderModule } from '../context-builder/context-builder.module';
+import { OpenclawModule } from '../openclaw/openclaw.module';
 import { TrainingModule } from '../training/training.module';
 
 @Module({
-  imports: [AuthModule, ContextBuilderModule, TrainingModule],
+  imports: [AuthModule, ContextBuilderModule, TrainingModule, OpenclawModule],
   controllers: [ChatController],
   providers: [ChatService, ConversationService],
   exports: [ChatService, ConversationService],

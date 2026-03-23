@@ -213,4 +213,106 @@ describe('chatService quiz normalization', () => {
       ],
     })
   })
+
+  it('normalizes analytics summary payloads into compact card data', () => {
+    const payload = normalizeUiPayload({
+      type: 'analytics-summary',
+      title: 'Q1 Training Summary',
+      departmentName: 'Customer Success',
+      periodLabel: 'Q1 2026',
+      completionRate: 84.4,
+      sentimentBreakdown: {
+        positive: 18,
+        neutral: 6,
+        negative: 2,
+      },
+      sentimentLabel: 'Mostly positive',
+      generatedAt: '2026-03-23T10:15:00.000Z',
+    })
+
+    expect(payload).toEqual({
+      type: 'analytics-summary',
+      title: 'Q1 Training Summary',
+      departmentName: 'Customer Success',
+      periodLabel: 'Q1 2026',
+      completionRate: 84.4,
+      sentimentBreakdown: {
+        positive: 18,
+        neutral: 6,
+        negative: 2,
+      },
+      sentimentLabel: 'Mostly positive',
+      generatedAt: '2026-03-23T10:15:00.000Z',
+    })
+  })
+
+  it('keeps malformed analytics summary payloads on plain text fallback', () => {
+    const message = normalizeChatMessage({
+      id: 'assistant-analytics-bad',
+      sender_type: 'assistant',
+      content: 'Analytics fallback text',
+      metadata: {
+        uiPayload: {
+          type: 'analytics-summary',
+          title: 'Broken summary',
+          departmentName: 'Customer Success',
+          periodLabel: 'Q1 2026',
+        },
+      },
+    })
+
+    expect(message.uiPayload).toBeNull()
+    expect(message.content).toBe('Analytics fallback text')
+  })
+
+  it('returns null for empty analytics summary payloads', () => {
+    expect(
+      normalizeUiPayload({
+        type: 'analytics-summary',
+        title: 'Empty summary',
+        departmentName: 'People Ops',
+        periodLabel: 'March 2026',
+        completionRate: 70,
+        sentimentBreakdown: {},
+      }),
+    ).toBeNull()
+  })
+
+  it('rehydrates analytics summary payloads from persisted metadata', () => {
+    const message = normalizeChatMessage({
+      id: 'assistant-analytics-1',
+      sender_type: 'assistant',
+      content: 'Analytics summary loaded from history.',
+      metadata: {
+        uiPayload: {
+          type: 'analytics-summary',
+          title: 'Department Summary',
+          departmentName: 'People Ops',
+          periodLabel: 'March 2026',
+          completionRate: 72.5,
+          sentimentBreakdown: {
+            positive: 10,
+            neutral: 5,
+            negative: 1,
+          },
+          sentimentLabel: 'Stable',
+        },
+      },
+    })
+
+    expect(message.uiPayload).toEqual({
+      type: 'analytics-summary',
+      title: 'Department Summary',
+      departmentName: 'People Ops',
+      periodLabel: 'March 2026',
+      completionRate: 72.5,
+      sentimentBreakdown: {
+        positive: 10,
+        neutral: 5,
+        negative: 1,
+      },
+      sentimentLabel: 'Stable',
+      generatedAt: '',
+    })
+  })
 })

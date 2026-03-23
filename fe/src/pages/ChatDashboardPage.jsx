@@ -218,6 +218,110 @@ function formatEstimatedHours(hours) {
   return `${hours}h`
 }
 
+function formatPercentage(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return null
+  }
+
+  return `${Math.round(value)}%`
+}
+
+function formatGeneratedAt(value) {
+  if (!value) {
+    return null
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return null
+  }
+
+  return date.toLocaleString()
+}
+
+function getSentimentTone(summary) {
+  if (!summary?.sentimentLabel) {
+    return ''
+  }
+
+  const normalized = summary.sentimentLabel.trim().toLowerCase()
+
+  if (normalized.includes('positive') || normalized.includes('tich cuc')) {
+    return 'chat-status-pill--success'
+  }
+
+  if (normalized.includes('negative') || normalized.includes('tieu cuc')) {
+    return 'chat-status-pill--danger'
+  }
+
+  return ''
+}
+
+function AnalyticsSummaryCard({ payload }) {
+  const completionRateLabel = formatPercentage(payload.completionRate)
+  const generatedAtLabel = formatGeneratedAt(payload.generatedAt)
+  const sentimentToneClassName = getSentimentTone(payload)
+
+  return (
+    <div className="chat-ui-card chat-ui-card--analytics-summary">
+      <div className="chat-ui-card__header">
+        <div>
+          <p className="section-tag chat-ui-card__eyebrow">Analytics summary</p>
+          <h3 className="chat-ui-card__title">{payload.title}</h3>
+        </div>
+        {completionRateLabel ? <span className="chat-ui-card__count">{completionRateLabel}</span> : null}
+      </div>
+
+      <div className="chat-meta-pill-row">
+        <span className="chat-meta-pill">{payload.departmentName}</span>
+        <span className="chat-meta-pill">{payload.periodLabel}</span>
+        {generatedAtLabel ? <span className="chat-meta-pill">Cap nhat {generatedAtLabel}</span> : null}
+      </div>
+
+      <div className="chat-analytics-summary-grid">
+        <article className="chat-analytics-summary-stat">
+          <p className="section-tag chat-ui-card__eyebrow">Completion</p>
+          <strong className="chat-analytics-summary-stat__value">{completionRateLabel ?? '—'}</strong>
+          <p className="chat-ui-card__copy">Ty le hoan thanh dao tao trong ky nay.</p>
+        </article>
+
+        <article className="chat-analytics-summary-stat">
+          <div className="chat-analytics-summary-stat__header">
+            <p className="section-tag chat-ui-card__eyebrow">Sentiment</p>
+            {payload.sentimentLabel ? (
+              <span
+                className={
+                  sentimentToneClassName
+                    ? `chat-status-pill ${sentimentToneClassName}`
+                    : 'chat-status-pill'
+                }
+              >
+                {payload.sentimentLabel}
+              </span>
+            ) : null}
+          </div>
+
+          <div className="chat-analytics-sentiment-list" aria-label="Sentiment breakdown">
+            <div className="chat-analytics-sentiment-item">
+              <span className="chat-meta-pill">Positive</span>
+              <strong className="chat-analytics-summary-stat__metric">{payload.sentimentBreakdown.positive}</strong>
+            </div>
+            <div className="chat-analytics-sentiment-item">
+              <span className="chat-meta-pill">Neutral</span>
+              <strong className="chat-analytics-summary-stat__metric">{payload.sentimentBreakdown.neutral}</strong>
+            </div>
+            <div className="chat-analytics-sentiment-item">
+              <span className="chat-meta-pill">Negative</span>
+              <strong className="chat-analytics-summary-stat__metric">{payload.sentimentBreakdown.negative}</strong>
+            </div>
+          </div>
+        </article>
+      </div>
+    </div>
+  )
+}
+
 function ChecklistCard({ payload, completingTaskIds, taskErrors, onCompleteTask }) {
   return (
     <div className="chat-ui-card chat-ui-card--checklist">
@@ -521,6 +625,10 @@ function StructuredAssistantContent({
 
       {message.uiPayload?.type === 'learning-path' ? (
         <LearningPathCard payload={message.uiPayload} />
+      ) : null}
+
+      {message.uiPayload?.type === 'analytics-summary' ? (
+        <AnalyticsSummaryCard payload={message.uiPayload} />
       ) : null}
     </>
   )

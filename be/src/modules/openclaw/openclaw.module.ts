@@ -1,4 +1,9 @@
 import { Module } from '@nestjs/common';
 
-@Module({})
+import { OpenclawService } from './openclaw.service';
+
+@Module({
+  providers: [OpenclawService],
+  exports: [OpenclawService],
+})
 export class OpenclawModule {}

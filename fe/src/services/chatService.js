@@ -339,6 +339,37 @@ function isLearningPathPayloadType(type) {
   return ['learning-path', 'learning_path', 'roadmap', 'learning-roadmap', 'learning_roadmap'].includes(type)
 }
 
+function isAnalyticsSummaryPayloadType(type) {
+  return [
+    'analytics-summary',
+    'analytics_summary',
+    'department-summary',
+    'department_summary',
+    'training-analytics-summary',
+    'training_analytics_summary',
+  ].includes(type)
+}
+
+function normalizeAnalyticsSentimentBreakdown(breakdown) {
+  if (!breakdown || typeof breakdown !== 'object' || Array.isArray(breakdown)) {
+    return null
+  }
+
+  const positive = getFirstNumber(breakdown.positive, breakdown.positiveCount, breakdown.positive_count)
+  const neutral = getFirstNumber(breakdown.neutral, breakdown.neutralCount, breakdown.neutral_count)
+  const negative = getFirstNumber(breakdown.negative, breakdown.negativeCount, breakdown.negative_count)
+
+  if (positive === null && neutral === null && negative === null) {
+    return null
+  }
+
+  return {
+    positive: positive ?? 0,
+    neutral: neutral ?? 0,
+    negative: negative ?? 0,
+  }
+}
+
 function normalizeLearningPathItem(item) {
   if (!item || typeof item !== 'object' || Array.isArray(item)) {
     return null
@@ -555,6 +586,71 @@ export function normalizeUiPayload(payload) {
       generated: payload.generated === undefined ? true : normalizeBoolean(payload.generated),
       summary: getFirstString(payload.summary, payload.nextStepLabel, payload.next_step_label),
       items,
+    }
+  }
+
+  const sentimentBreakdown = normalizeAnalyticsSentimentBreakdown(
+    payload.sentimentBreakdown ??
+      payload.sentiment_breakdown ??
+      payload.sentiment ??
+      payload.data?.sentimentBreakdown ??
+      payload.data?.sentiment_breakdown,
+  )
+
+  if (isAnalyticsSummaryPayloadType(payloadType) || sentimentBreakdown) {
+    const title = getFirstString(payload.title, payload.heading, payload.label)
+    const departmentName = getFirstString(
+      payload.departmentName,
+      payload.department_name,
+      payload.department,
+      payload.departmentLabel,
+      payload.department_label,
+      payload.data?.departmentName,
+      payload.data?.department_name,
+    )
+    const periodLabel = getFirstString(
+      payload.periodLabel,
+      payload.period_label,
+      payload.period,
+      payload.rangeLabel,
+      payload.range_label,
+      payload.data?.periodLabel,
+      payload.data?.period_label,
+    )
+    const completionRate = getFirstNumber(
+      payload.completionRate,
+      payload.completion_rate,
+      payload.data?.completionRate,
+      payload.data?.completion_rate,
+    )
+
+    if (!title || !departmentName || !periodLabel || completionRate === null || !sentimentBreakdown) {
+      return null
+    }
+
+    return {
+      type: 'analytics-summary',
+      title,
+      departmentName,
+      periodLabel,
+      completionRate,
+      sentimentBreakdown,
+      sentimentLabel: getFirstString(
+        payload.sentimentLabel,
+        payload.sentiment_label,
+        payload.summaryLabel,
+        payload.summary_label,
+        payload.data?.sentimentLabel,
+        payload.data?.sentiment_label,
+      ),
+      generatedAt: getFirstString(
+        payload.generatedAt,
+        payload.generated_at,
+        payload.createdAt,
+        payload.created_at,
+        payload.data?.generatedAt,
+        payload.data?.generated_at,
+      ),
     }
   }
 

@@ -6,21 +6,20 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.TrainingModule = void 0;
+exports.AnalyticsModule = void 0;
 const common_1 = require("@nestjs/common");
 const auth_module_1 = require("../auth/auth.module");
-const training_controller_1 = require("./training.controller");
-const training_internal_controller_1 = require("./training.internal.controller");
-const training_service_1 = require("./training.service");
-let TrainingModule = class TrainingModule {
+const analytics_internal_controller_1 = require("./analytics.internal.controller");
+const analytics_service_1 = require("./analytics.service");
+let AnalyticsModule = class AnalyticsModule {
 };
-exports.TrainingModule = TrainingModule;
-exports.TrainingModule = TrainingModule = __decorate([
+exports.AnalyticsModule = AnalyticsModule;
+exports.AnalyticsModule = AnalyticsModule = __decorate([
     (0, common_1.Module)({
         imports: [auth_module_1.AuthModule],
-        controllers: [training_internal_controller_1.TrainingInternalController, training_controller_1.TrainingController],
-        providers: [training_service_1.TrainingService],
-        exports: [training_service_1.TrainingService],
+        controllers: [analytics_internal_controller_1.AnalyticsInternalController],
+        providers: [analytics_service_1.AnalyticsService],
+        exports: [analytics_service_1.AnalyticsService],
     })
-], TrainingModule);
-//# sourceMappingURL=training.module.js.map
+], AnalyticsModule);
+//# sourceMappingURL=analytics.module.js.map

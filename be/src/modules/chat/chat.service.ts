@@ -1,10 +1,13 @@
 import { Injectable } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { Observable, Subject } from 'rxjs';
+import { InternalTokenService } from '../auth/internal-token.service';
 import {
   BuiltPromptContext,
   ContextBuilderService,
 } from '../context-builder/context-builder.service';
+import { OpenclawService } from '../openclaw/openclaw.service';
 import { TrainingService } from '../training/training.service';
 import { ConversationService } from './conversation.service';
 
@@ -14,6 +17,8 @@ export class ChatService {
     private readonly conversationService: ConversationService,
     private readonly contextBuilderService: ContextBuilderService,
     private readonly trainingService: TrainingService,
+    private readonly internalTokenService: InternalTokenService,
+    private readonly openclawService: OpenclawService,
   ) {}
 
   async processMessage(
@@ -63,12 +68,24 @@ export class ChatService {
     const learningPath = quizPayload
       ? null
       : await this.buildLearningPathIfRequested(userId, message);
-    const uiPayload = quizPayload ?? learningPath?.payload ?? null;
+    const isAnalyticsRequest = this.looksLikeAnalyticsSummaryRequest(message);
+    const analyticsResponse =
+      !quizPayload && !learningPath && isAnalyticsRequest
+        ? await this.buildAnalyticsResponse({
+            userId,
+            message,
+            promptContext,
+            conversationId,
+          })
+        : null;
+    const uiPayload = quizPayload ?? learningPath?.payload ?? analyticsResponse?.uiPayload ?? null;
     const fullResponse = quizPayload
       ? 'Toi da tao mot mini quiz ngan de ban tu danh gia nhanh ngay trong khung chat nay.'
       : learningPath
         ? `Toi da goi y lo trinh hoc cho ban. ${learningPath.summary || ''}`.trim()
-        : 'Chao ban! Toi la tro ly OpenClaw. He thong dang trong qua trinh hoan thien cac module nghiep vu. Toi co the giup gi cho ban hom nay?';
+        : analyticsResponse
+          ? analyticsResponse.text
+          : 'Chao ban! Toi la tro ly OpenClaw. He thong dang trong qua trinh hoan thien cac module nghiep vu. Toi co the giup gi cho ban hom nay?';
     const words = fullResponse.split(' ');
     let currentText = '';
 
@@ -91,7 +108,7 @@ export class ChatService {
       'assistant',
       fullResponse,
       undefined,
-      this.buildAssistantMetadata(uiPayload),
+      this.buildAssistantMetadata(uiPayload, analyticsResponse),
     );
 
     eventStream.complete();
@@ -134,7 +151,82 @@ export class ChatService {
     return /(lo trinh|learning path|goi y hoc|nen hoc|khoa nao truoc|dao tao)/i.test(message);
   }
 
-  private buildAssistantMetadata(uiPayload: unknown) {
+  private looksLikeAnalyticsSummaryRequest(message: string) {
+    return /(bao cao|analytics|phan tich|tong hop).*(phong ban|dao tao)|(phong ban|dao tao).*(bao cao|analytics|phan tich|tong hop)/i.test(
+      message,
+    );
+  }
+
+  private async buildAnalyticsResponse({
+    userId,
+    message,
+    promptContext,
+    conversationId,
+  }: {
+    userId: string;
+    message: string;
+    promptContext: BuiltPromptContext;
+    conversationId: string;
+  }) {
+    const traceId = randomUUID();
+
+    try {
+      const internalToken = await this.internalTokenService.createToken(
+        'training_analytics_agent',
+        userId,
+        conversationId,
+        ['read:analytics'],
+      );
+      const analyticsContext: BuiltPromptContext = {
+        ...promptContext,
+        session: {
+          ...promptContext.session,
+          agentGroup: 'training_analytics_agent',
+        },
+        allowedResources: {
+          ...promptContext.allowedResources,
+          tools: ['get_department_training_analytics'],
+          scopes: ['read:analytics'],
+        },
+      };
+      const response = await this.openclawService.run({
+        agentName: 'training_analytics_agent',
+        message,
+        context: analyticsContext,
+        internalToken,
+        conversationId,
+        userId,
+        traceId,
+      });
+
+      return {
+        text:
+          response.text ||
+          'Toi da tong hop bao cao analytics theo pham vi duoc phep cua ban.',
+        uiPayload: response.uiPayload,
+        orchestration: 'openclaw',
+        traceId,
+        agentName: 'training_analytics_agent',
+      };
+    } catch {
+      return {
+        text: 'Khong the tai bao cao analytics luc nay. Vui long thu lai sau.',
+        uiPayload: null,
+        orchestration: 'openclaw-fallback',
+        traceId,
+        agentName: 'training_analytics_agent',
+      };
+    }
+  }
+
+  private buildAssistantMetadata(
+    uiPayload: unknown,
+    analyticsResponse?: {
+      orchestration: string;
+      traceId: string;
+      agentName: string;
+    } | null,
+  ) {
     const normalizedPayload =
       uiPayload && typeof uiPayload === 'object' && !Array.isArray(uiPayload)
         ? (uiPayload as Record<string, unknown>)
@@ -142,7 +234,9 @@ export class ChatService {
 
     return JSON.parse(
       JSON.stringify({
-        orchestration: 'mock',
+        orchestration: analyticsResponse?.orchestration ?? 'mock',
+        traceId: analyticsResponse?.traceId,
+        agentName: analyticsResponse?.agentName,
         uiPayloadVersion: normalizedPayload?.version ?? null,
         uiPayload: normalizedPayload,
       }),

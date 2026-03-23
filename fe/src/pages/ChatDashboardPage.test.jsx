@@ -279,4 +279,152 @@ describe('ChatDashboardPage quiz card', () => {
     expect(screen.getByText('Product Overview')).toBeInTheDocument()
     expect(screen.getByText('Mon nen tang')).toBeInTheDocument()
   })
+
+  it('renders analytics summary cards from persisted history while keeping assistant text visible', async () => {
+    chatService.getMessages.mockResolvedValue([
+      normalizeChatMessage({
+        id: 'assistant-analytics-1',
+        sender_type: 'assistant',
+        content: 'Day la tong hop analytics moi nhat.',
+        metadata: {
+          uiPayload: {
+            type: 'analytics-summary',
+            title: 'Q1 Training Summary',
+            departmentName: 'Customer Success',
+            periodLabel: 'Q1 2026',
+            completionRate: 84.4,
+            sentimentBreakdown: {
+              positive: 18,
+              neutral: 6,
+              negative: 2,
+            },
+            sentimentLabel: 'Mostly positive',
+            generatedAt: '2026-03-23T10:15:00.000Z',
+          },
+        },
+      }),
+    ])
+
+    renderPage()
+
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: /Quiz conversation/i }))
+
+    expect(await screen.findByText('Q1 Training Summary')).toBeInTheDocument()
+    expect(screen.getByText('Day la tong hop analytics moi nhat.')).toBeInTheDocument()
+    expect(screen.getByText('Customer Success')).toBeInTheDocument()
+    expect(screen.getByText('Q1 2026')).toBeInTheDocument()
+    expect(screen.getAllByText('84%')[0]).toBeInTheDocument()
+    expect(screen.getByText('Mostly positive')).toBeInTheDocument()
+    expect(screen.getByText('Positive')).toBeInTheDocument()
+    expect(screen.getByText('18')).toBeInTheDocument()
+    expect(screen.getByText('Negative')).toBeInTheDocument()
+    expect(screen.getByText('2')).toBeInTheDocument()
+  })
+
+  it('renders analytics summary cards from streamed assistant events without waiting for history reload', async () => {
+    chatService.getConversations.mockResolvedValue([])
+    chatService.getMessages.mockResolvedValue([])
+    chatService.sendMessageStream.mockImplementation(async (_message, _sessionKey, onEvent) => {
+      onEvent({
+        type: 'text',
+        chunk: 'Day la tong hop analytics moi nhat. ',
+      })
+      onEvent({
+        type: 'ui-payload',
+        uiPayload: {
+          type: 'analytics-summary',
+          title: 'Live Department Summary',
+          departmentName: 'Engineering',
+          periodLabel: '03/2026',
+          completionRate: 88.2,
+          sentimentBreakdown: {
+            positive: 12,
+            neutral: 3,
+            negative: 1,
+          },
+          sentimentLabel: 'positive',
+        },
+      })
+    })
+
+    renderPage()
+
+    const user = userEvent.setup()
+    await user.type(screen.getByPlaceholderText('Nhap tin nhan cua ban...'), 'Bao cao tien do dao tao phong Dev thang nay')
+    await user.click(screen.getByRole('button', { name: 'Gui' }))
+
+    expect(await screen.findByText('Live Department Summary')).toBeInTheDocument()
+    expect(screen.getByText('Day la tong hop analytics moi nhat.')).toBeInTheDocument()
+    expect(screen.getByText('Engineering')).toBeInTheDocument()
+    expect(screen.getByText('03/2026')).toBeInTheDocument()
+    expect(screen.getAllByText('88%')[0]).toBeInTheDocument()
+    expect(chatService.sendMessageStream).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps malformed analytics payload history on text-only fallback', async () => {
+    chatService.getMessages.mockResolvedValue([
+      normalizeChatMessage({
+        id: 'assistant-analytics-bad',
+        sender_type: 'assistant',
+        content: 'Chi co van ban vi payload khong hop le.',
+        metadata: {
+          uiPayload: {
+            type: 'analytics-summary',
+            title: 'Broken summary',
+            departmentName: 'Customer Success',
+            periodLabel: 'Q1 2026',
+          },
+        },
+      }),
+    ])
+
+    renderPage()
+
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: /Quiz conversation/i }))
+
+    expect(await screen.findByText('Chi co van ban vi payload khong hop le.')).toBeInTheDocument()
+    expect(screen.queryByText('Broken summary')).not.toBeInTheDocument()
+    expect(screen.queryByText('Analytics summary')).not.toBeInTheDocument()
+  })
+
+  it('renders analytics summary messages rehydrated from history without triggering quiz behavior', async () => {
+    chatService.getMessages.mockResolvedValue([
+      normalizeChatMessage({
+        id: 'assistant-analytics-2',
+        sender_type: 'assistant',
+        content: 'Bao cao duoc tai lai tu lich su.',
+        metadata: {
+          uiPayload: {
+            type: 'analytics-summary',
+            title: 'Department Summary',
+            departmentName: 'People Ops',
+            periodLabel: 'March 2026',
+            completionRate: 72.5,
+            sentimentBreakdown: {
+              positive: 10,
+              neutral: 5,
+              negative: 1,
+            },
+            sentimentLabel: 'Stable',
+          },
+        },
+      }),
+    ])
+
+    renderPage()
+
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: /Quiz conversation/i }))
+
+    expect(await screen.findByText('Department Summary')).toBeInTheDocument()
+    expect(screen.getByText('Bao cao duoc tai lai tu lich su.')).toBeInTheDocument()
+    expect(screen.getByText('People Ops')).toBeInTheDocument()
+    expect(screen.getByText('March 2026')).toBeInTheDocument()
+    expect(screen.getAllByText('73%')[0]).toBeInTheDocument()
+    expect(screen.getByText('Stable')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Nop bai' })).not.toBeInTheDocument()
+    expect(trainingService.submitQuiz).not.toHaveBeenCalled()
+  })
 })
