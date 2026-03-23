@@ -771,10 +771,19 @@ function normalizeChatMessages(messages) {
   return messages.map(normalizeChatMessage)
 }
 
+function normalizeConversations(conversations) {
+  if (!Array.isArray(conversations)) {
+    return []
+  }
+
+  return conversations
+}
+
 export const chatService = {
   getConversations: async () => {
     const response = await apiClient.get('/api/chat/conversations')
-    return response.data
+    const payload = Array.isArray(response.data) ? response.data : response.data?.data
+    return normalizeConversations(payload)
   },
 
   getMessages: async (conversationId) => {
