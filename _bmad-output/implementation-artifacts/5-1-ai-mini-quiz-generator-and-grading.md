@@ -1,6 +1,6 @@
 # Story 5.1: AI Mini-Quiz Generator & Grading
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -23,55 +23,55 @@ so that I can validate my knowledge quickly without leaving the chat workflow.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Implement backend training quiz APIs with strict ownership and scope enforcement (AC: 1, 2, 3, 7, 10)
-  - [ ] Create the training quiz internal controller/service flow under `be/src/modules/training/` instead of adding DB logic to chat or controllers.
-  - [ ] Implement `POST /internal/tools/training/quiz/generate` guarded by `InternalAgentGuard` and `@AgentScope(...)`, deriving `userId` only from `request.internalAgent.userId`.
-  - [ ] Implement backend quiz grading and persistence logic that writes `quiz_attempts.submitted_answers`, `score`, `duration_seconds`, and `submitted_at`.
-  - [ ] Implement authenticated external APIs for the frontend submission/result flow, keeping them in the external namespace and separate from `/internal/tools/*`, with the current target routes aligned to `POST /api/quiz/submit` and `GET /api/quiz/:id/result` from `be/docs/api/API_SPEC.md`.
-  - [ ] Enforce result lookup ownership so a user can only fetch quiz attempts that belong to them.
-  - [ ] Reuse the existing global response envelope and trace metadata behavior instead of hand-rolling success/error wrappers.
+- [x] Task 1: Implement backend training quiz APIs with strict ownership and scope enforcement (AC: 1, 2, 3, 7, 10)
+  - [x] Create the training quiz internal controller/service flow under `be/src/modules/training/` instead of adding DB logic to chat or controllers.
+  - [x] Implement `POST /internal/tools/training/quiz/generate` guarded by `InternalAgentGuard` and `@AgentScope(...)`, deriving `userId` only from `request.internalAgent.userId`.
+  - [x] Implement backend quiz grading and persistence logic that writes `quiz_attempts.submitted_answers`, `score`, `duration_seconds`, and `submitted_at`.
+  - [x] Implement authenticated external APIs for the frontend submission/result flow, keeping them in the external namespace and separate from `/internal/tools/*`, with the current target routes aligned to `POST /api/quiz/submit` and `GET /api/quiz/:id/result` from `be/docs/api/API_SPEC.md`.
+  - [x] Enforce result lookup ownership so a user can only fetch quiz attempts that belong to them.
+  - [x] Reuse the existing global response envelope and trace metadata behavior instead of hand-rolling success/error wrappers.
 
-- [ ] Task 2: Reuse the live Prisma schema and map it into stable quiz DTOs without refactoring schema conventions (AC: 3, 7, 10)
-  - [ ] Read quiz content from `quiz_templates`, `quiz_questions`, and related `courses` records already present in `be/prisma/schema.prisma`.
-  - [ ] Grade answers against `quiz_questions.answer_key_json` and keep raw answer keys server-side.
-  - [ ] Return a frontend-safe quiz payload shape with question ids, prompt text, type, options, weights, and result summary fields only.
-  - [ ] Follow the current introspected Prisma model naming already used in the repo (`quiz_templates`, `quiz_questions`, `quiz_attempts`) and do not introduce a schema-wide PascalCase remapping in this story.
-  - [ ] Keep generated or rendered quiz artifacts as support outputs only; PostgreSQL remains the source of truth for quiz attempts and scores.
+- [x] Task 2: Reuse the live Prisma schema and map it into stable quiz DTOs without refactoring schema conventions (AC: 3, 7, 10)
+  - [x] Read quiz content from `quiz_templates`, `quiz_questions`, and related `courses` records already present in `be/prisma/schema.prisma`.
+  - [x] Grade answers against `quiz_questions.answer_key_json` and keep raw answer keys server-side.
+  - [x] Return a frontend-safe quiz payload shape with question ids, prompt text, type, options, weights, and result summary fields only.
+  - [x] Follow the current introspected Prisma model naming already used in the repo (`quiz_templates`, `quiz_questions`, `quiz_attempts`) and do not introduce a schema-wide PascalCase remapping in this story.
+  - [x] Keep generated or rendered quiz artifacts as support outputs only; PostgreSQL remains the source of truth for quiz attempts and scores.
 
-- [ ] Task 3: Extend the chat/orchestration contract to carry one quiz card safely through the existing SSE pipeline (AC: 2, 3, 4, 8, 10)
-  - [ ] Reuse the current `uiPayload` event path already consumed by the frontend chat stream instead of inventing a second real-time transport.
-  - [ ] Emit one assistant message with plain text plus one `uiPayload.type === 'quiz'` object for the active turn.
-  - [ ] Keep the payload compact because OpenClaw tool results are sanitized and truncated aggressively.
-  - [ ] Prefer a backend/orchestrator mapping from tool result -> chat `uiPayload` over deep changes to OpenClaw core runtime primitives.
-  - [ ] Persist the quiz payload in message metadata so historical conversations can be rehydrated later.
-  - [ ] Update the chat message read path to return any metadata needed for `normalizeChatMessage()` to rebuild structured quiz content from stored assistant messages.
+- [x] Task 3: Extend the chat/orchestration contract to carry one quiz card safely through the existing SSE pipeline (AC: 2, 3, 4, 8, 10)
+  - [x] Reuse the current `uiPayload` event path already consumed by the frontend chat stream instead of inventing a second real-time transport.
+  - [x] Emit one assistant message with plain text plus one `uiPayload.type === 'quiz'` object for the active turn.
+  - [x] Keep the payload compact because OpenClaw tool results are sanitized and truncated aggressively.
+  - [x] Prefer a backend/orchestrator mapping from tool result -> chat `uiPayload` over deep changes to OpenClaw core runtime primitives.
+  - [x] Persist the quiz payload in message metadata so historical conversations can be rehydrated later.
+  - [x] Update the chat message read path to return any metadata needed for `normalizeChatMessage()` to rebuild structured quiz content from stored assistant messages.
 
-- [ ] Task 4: Add inline quiz rendering and submission UX in the existing chat dashboard (AC: 4, 5, 6, 8, 9, 10)
-  - [ ] Extend `fe/src/services/chatService.js` so `normalizeUiPayload()` recognizes and normalizes quiz payloads without regressing checklist or support-contact handling.
-  - [ ] Add a `QuizCard` render path to `fe/src/pages/ChatDashboardPage.jsx` beside the existing structured card components.
-  - [ ] Add a dedicated frontend training API helper (for example `fe/src/services/trainingService.js`) that uses the existing authenticated `apiClient` flow.
-  - [ ] Manage quiz pending/error/result state separately from checklist state so quiz actions do not couple to onboarding task actions.
-  - [ ] Keep normal streaming text behavior, placeholder updates, and malformed-payload fallback intact.
-  - [ ] Keep the implementation in JavaScript/JSX to match the live frontend app; do not start a TypeScript migration in this story.
+- [x] Task 4: Add inline quiz rendering and submission UX in the existing chat dashboard (AC: 4, 5, 6, 8, 9, 10)
+  - [x] Extend `fe/src/services/chatService.js` so `normalizeUiPayload()` recognizes and normalizes quiz payloads without regressing checklist or support-contact handling.
+  - [x] Add a `QuizCard` render path to `fe/src/pages/ChatDashboardPage.jsx` beside the existing structured card components.
+  - [x] Add a dedicated frontend training API helper (for example `fe/src/services/trainingService.js`) that uses the existing authenticated `apiClient` flow.
+  - [x] Manage quiz pending/error/result state separately from checklist state so quiz actions do not couple to onboarding task actions.
+  - [x] Keep normal streaming text behavior, placeholder updates, and malformed-payload fallback intact.
+  - [x] Keep the implementation in JavaScript/JSX to match the live frontend app; do not start a TypeScript migration in this story.
 
-- [ ] Task 5: Make historical conversation reloads preserve structured quiz outcomes (AC: 8, 9, 10)
-  - [ ] Persist assistant-side quiz payloads in message metadata at save time.
-  - [ ] Ensure `GET /api/chat/conversations/:id/messages` includes the metadata fields needed by the frontend normalizer.
-  - [ ] Verify that reopening an old conversation reproduces quiz cards and result summaries without requiring a new stream.
-  - [ ] Keep the persisted shape backward-compatible so non-quiz assistant messages continue to render as plain text.
+- [x] Task 5: Make historical conversation reloads preserve structured quiz outcomes (AC: 8, 9, 10)
+  - [x] Persist assistant-side quiz payloads in message metadata at save time.
+  - [x] Ensure `GET /api/chat/conversations/:id/messages` includes the metadata fields needed by the frontend normalizer.
+  - [x] Verify that reopening an old conversation reproduces quiz cards and result summaries without requiring a new stream.
+  - [x] Keep the persisted shape backward-compatible so non-quiz assistant messages continue to render as plain text.
 
-- [ ] Task 6: Preserve zero-trust architecture and current module boundaries (AC: 1, 2, 3, 7, 10)
-  - [ ] Do not let the frontend call OpenClaw or `/internal/tools/*` directly.
-  - [ ] Do not let OpenClaw query the database directly; all quiz data must flow through backend tool APIs and backend services.
-  - [ ] Keep quiz generation under the training domain only; do not leak analytics-only or onboarding-only tools into this story.
-  - [ ] Reuse the existing internal guard, trace id utilities, and append-only audit logging path instead of creating parallel security plumbing.
+- [x] Task 6: Preserve zero-trust architecture and current module boundaries (AC: 1, 2, 3, 7, 10)
+  - [x] Do not let the frontend call OpenClaw or `/internal/tools/*` directly.
+  - [x] Do not let OpenClaw query the database directly; all quiz data must flow through backend tool APIs and backend services.
+  - [x] Keep quiz generation under the training domain only; do not leak analytics-only or onboarding-only tools into this story.
+  - [x] Reuse the existing internal guard, trace id utilities, and append-only audit logging path instead of creating parallel security plumbing.
 
-- [ ] Task 7: Validate the feature with both backend and frontend automated checks (AC: 3, 4, 7, 8, 9, 10)
-  - [ ] Add backend tests for internal generation, external submission, score calculation, ownership rejection, and result lookup.
-  - [ ] Add backend tests that prove quiz tool calls still flow through the existing audit/trace path.
-  - [ ] Add frontend Vitest/Testing Library coverage for quiz payload normalization, quiz card rendering, answer submission, error state, and history rehydration.
-  - [ ] Run `npm run prisma:generate`, `npm run build`, and `npm run test` in `be/` if Prisma or backend code changes.
-  - [ ] Run `npm run lint`, `npm run test`, and `npm run build` in `fe/` for the frontend slice.
+- [x] Task 7: Validate the feature with both backend and frontend automated checks (AC: 3, 4, 7, 8, 9, 10)
+  - [x] Add backend tests for internal generation, external submission, score calculation, ownership rejection, and result lookup.
+  - [x] Add backend tests that prove quiz tool calls still flow through the existing audit/trace path.
+  - [x] Add frontend Vitest/Testing Library coverage for quiz payload normalization, quiz card rendering, answer submission, error state, and history rehydration.
+  - [x] Run `npm run prisma:generate`, `npm run build`, and `npm run test` in `be/` if Prisma or backend code changes.
+  - [x] Run `npm run lint`, `npm run test`, and `npm run build` in `fe/` for the frontend slice.
 
 ## Dev Notes
 
@@ -267,12 +267,44 @@ GPT-5 Codex
 - Guardrails added for backend ownership, scoped tool access, chat-card rendering reuse, history rehydration, and append-only audit compatibility.
 - Story intentionally keeps scope tight around quiz generation, submission, grading, and inline result rendering without expanding into learning-path or analytics work.
 - Story explicitly warns the dev agent to follow the live repo conventions (JS/JSX frontend and current Prisma schema naming) instead of broad cleanup refactors suggested by higher-level architecture artifacts.
+- Implemented the first real backend training module slice with separate internal and external quiz controllers, service-owned Prisma access for quiz templates/questions/attempts, owner-only result lookup, and compact frontend-safe DTO mapping that keeps answer keys server-side.
+- Updated chat persistence so assistant quiz uiPayload metadata is versioned, stored in `messages.metadata`, emitted on the existing SSE path, and returned by conversation history retrieval for rehydration.
+- Added backend coverage for thin controller delegation, training internal-tool audit continuity, grading/persistence, owner-only lookups, and chat metadata round-trip, then validated with `npm run prisma:generate`, targeted Jest suites, full backend Jest, and `npm run build`.
+- Persisted quiz result summaries back into the originating assistant message metadata via `assistantMessageId`, preventing duplicate submit on the same quiz card and ensuring reopened conversations rehydrate the completed result state.
+- Extended the append-only audit path to cover external `POST /api/quiz/submit` and `GET /api/quiz/:id/result` routes in addition to the internal training tool route, with integration coverage for trace id and authenticated user ownership.
+- Validated the frontend quiz slice with `npm run lint`, focused Vitest coverage, full frontend `npm run test`, and `npm run build`; malformed payloads still fall back to plain text.
 
 ### File List
 
 - `_bmad-output/implementation-artifacts/5-1-ai-mini-quiz-generator-and-grading.md`
 - `_bmad-output/implementation-artifacts/sprint-status.yaml`
+- `be/src/modules/training/dto/generate-quiz.dto.ts`
+- `be/src/modules/training/dto/submit-quiz.dto.ts`
+- `be/src/modules/training/training.controller.ts`
+- `be/src/modules/training/training.controller.spec.ts`
+- `be/src/modules/training/training.internal.controller.ts`
+- `be/src/modules/training/training.internal.controller.spec.ts`
+- `be/src/modules/training/training.module.ts`
+- `be/src/modules/training/training.service.ts`
+- `be/src/modules/training/training.service.spec.ts`
+- `be/src/modules/chat/chat.module.ts`
+- `be/src/modules/chat/chat.service.ts`
+- `be/src/modules/chat/chat.service.spec.ts`
+- `be/src/modules/chat/conversation.service.ts`
+- `be/src/modules/chat/conversation.service.spec.ts`
+- `be/src/modules/tool-gateway/tool-call-log-metadata.resolver.ts`
+- `be/src/modules/tool-gateway/tool-call-log.types.ts`
+- `be/src/modules/tool-gateway/tool-call-logger.service.ts`
+- `be/src/modules/tool-gateway/tool-call-logging.interceptor.ts`
+- `be/src/tests/integration/internal-tool-audit.spec.ts`
+- `fe/src/services/trainingService.js`
+- `fe/src/services/chatService.test.js`
+- `fe/src/pages/ChatDashboardPage.test.jsx`
+- `fe/src/App.css`
+- `fe/src/test/setup.js`
 
 ## Change Log
 
 - `2026-03-23`: Created the comprehensive ready-for-dev story context for Story 5.1 AI mini-quiz generation, grading, and inline chat rendering.
+- `2026-03-23`: Implemented the backend Story 5.1 quiz slice for secure internal generation, external submission/result APIs, grading/persistence, chat uiPayload metadata storage, and history rehydration coverage.
+- `2026-03-23`: Completed the end-to-end quiz chat slice with persisted result rehydration, FE inline quiz UX, and append-only audit coverage for internal generate plus external submit/result routes.

@@ -11,6 +11,10 @@ import { InternalAgentGuard } from '../../modules/auth/guards/internal-agent.gua
 import { InternalTokenService } from '../../modules/auth/internal-token.service';
 import { OnboardingInternalController } from '../../modules/onboarding/onboarding.internal.controller';
 import { OnboardingService } from '../../modules/onboarding/onboarding.service';
+import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
+import { TrainingController } from '../../modules/training/training.controller';
+import { TrainingInternalController } from '../../modules/training/training.internal.controller';
+import { TrainingService } from '../../modules/training/training.service';
 import { ToolCallLoggingInterceptor } from '../../modules/tool-gateway/tool-call-logging.interceptor';
 import { ToolCallLoggerService } from '../../modules/tool-gateway/tool-call-logger.service';
 import { ToolCallLogMetadataResolver } from '../../modules/tool-gateway/tool-call-log-metadata.resolver';
@@ -40,6 +44,20 @@ describe('Internal tool audit integration', () => {
     completeChecklistTask: jest.fn(),
   };
 
+  const trainingService = {
+    generateQuizForUser: jest.fn(),
+    submitQuizAttempt: jest.fn(),
+    getQuizAttemptResult: jest.fn(),
+  };
+
+  const jwtAuthGuard = {
+    canActivate: (context: any) => {
+      const request = context.switchToHttp().getRequest();
+      request.user = { userId: 'user-jwt-1' };
+      return true;
+    },
+  };
+
   const internalTokenService = {
     verifyToken: jest.fn(),
   };
@@ -47,7 +65,7 @@ describe('Internal tool audit integration', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [JwtModule.register({})],
-      controllers: [OnboardingInternalController],
+      controllers: [OnboardingInternalController, TrainingInternalController, TrainingController],
       providers: [
         InternalAgentGuard,
         ToolCallLogMetadataResolver,
@@ -62,11 +80,18 @@ describe('Internal tool audit integration', () => {
           useValue: onboardingService,
         },
         {
+          provide: TrainingService,
+          useValue: trainingService,
+        },
+        {
           provide: InternalTokenService,
           useValue: internalTokenService,
         },
       ],
-    }).compile();
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue(jwtAuthGuard)
+      .compile();
 
     app = moduleRef.createNestApplication();
     app.useGlobalPipes(
@@ -230,6 +255,149 @@ describe('Internal tool audit integration', () => {
         conversation_id: 'conv-1',
         success: false,
         http_status: 403,
+      }),
+    });
+  });
+
+  it('wraps training quiz generation responses and appends one audit row for the internal quiz tool', async () => {
+    internalTokenService.verifyToken.mockResolvedValue({
+      agent: 'learning_training_agent',
+      userId: 'user-training-1',
+      conversationId: 'conv-training-1',
+      scope: ['write:training'],
+      jti: 'jti-training-1',
+    });
+    trainingService.generateQuizForUser.mockResolvedValue({
+      type: 'quiz',
+      version: 1,
+      quizId: 'quiz-1',
+      templateCode: 'nodejs-basics',
+      title: 'NodeJS Basics',
+      difficulty: 'easy',
+      course: null,
+      questionCount: 1,
+      questions: [],
+    });
+
+    const response = await request(app.getHttpServer())
+      .post('/internal/tools/training/quiz/generate')
+      .set('Authorization', 'Bearer valid-training-token')
+      .set('X-Agent-Name', 'learning_training_agent')
+      .set('X-User-Id', 'user-training-1')
+      .set('X-Conversation-Id', 'conv-training-1')
+      .set('X-Trace-Id', 'trace-training-1')
+      .send({ difficulty: 'easy', questionCount: 1 });
+
+    expect(response.status).toBe(201);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.type).toBe('quiz');
+    expect(response.body.meta.traceId).toBe('trace-training-1');
+    expect(trainingService.generateQuizForUser).toHaveBeenCalledWith(
+      'user-training-1',
+      {
+        difficulty: 'easy',
+        questionCount: 1,
+      },
+    );
+    expect(prisma.tool_call_logs.create).toHaveBeenCalledTimes(1);
+    expect(prisma.tool_call_logs.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        trace_id: 'trace-training-1',
+        user_id: 'user-training-1',
+        conversation_id: 'conv-training-1',
+        success: true,
+      }),
+    });
+  });
+
+  it('wraps external quiz submission responses and appends one audit row with the authenticated user id', async () => {
+    trainingService.submitQuizAttempt.mockResolvedValue({
+      attemptId: 'attempt-1',
+      quizId: '550e8400-e29b-41d4-a716-446655440010',
+      title: 'NodeJS Basics',
+      difficulty: 'easy',
+      course: null,
+      score: 1,
+      maxScore: 1,
+      scorePercent: 100,
+      correctCount: 1,
+      totalQuestions: 1,
+      durationSeconds: 12,
+      submittedAt: '2026-03-23T01:00:00.000Z',
+      questionResults: [],
+    });
+
+    const response = await request(app.getHttpServer())
+      .post('/api/quiz/submit')
+      .set('Authorization', 'Bearer jwt-token')
+      .set('X-Trace-Id', 'trace-quiz-submit-1')
+      .send({
+        quizId: '550e8400-e29b-41d4-a716-446655440010',
+        assistantMessageId: '550e8400-e29b-41d4-a716-446655440013',
+        durationSeconds: 12,
+        answers: [
+          {
+            questionId: '550e8400-e29b-41d4-a716-446655440012',
+            answer: 'V8',
+          },
+        ],
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.success).toBe(true);
+    expect(trainingService.submitQuizAttempt).toHaveBeenCalledWith('user-jwt-1', {
+      quizId: '550e8400-e29b-41d4-a716-446655440010',
+      assistantMessageId: '550e8400-e29b-41d4-a716-446655440013',
+      durationSeconds: 12,
+      answers: [
+        {
+          questionId: '550e8400-e29b-41d4-a716-446655440012',
+          answer: 'V8',
+        },
+      ],
+    });
+    expect(prisma.tool_call_logs.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        trace_id: 'trace-quiz-submit-1',
+        user_id: 'user-jwt-1',
+        success: true,
+      }),
+    });
+  });
+
+  it('wraps external quiz result retrieval responses and appends one audit row with the authenticated user id', async () => {
+    trainingService.getQuizAttemptResult.mockResolvedValue({
+      attemptId: '550e8400-e29b-41d4-a716-446655440011',
+      quizId: '550e8400-e29b-41d4-a716-446655440010',
+      title: 'NodeJS Basics',
+      difficulty: 'easy',
+      course: null,
+      score: 1,
+      maxScore: 1,
+      scorePercent: 100,
+      correctCount: 1,
+      totalQuestions: 1,
+      durationSeconds: 12,
+      submittedAt: '2026-03-23T01:00:00.000Z',
+      questionResults: [],
+    });
+
+    const response = await request(app.getHttpServer())
+      .get('/api/quiz/550e8400-e29b-41d4-a716-446655440011/result')
+      .set('Authorization', 'Bearer jwt-token')
+      .set('X-Trace-Id', 'trace-quiz-result-1');
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(trainingService.getQuizAttemptResult).toHaveBeenCalledWith(
+      'user-jwt-1',
+      '550e8400-e29b-41d4-a716-446655440011',
+    );
+    expect(prisma.tool_call_logs.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        trace_id: 'trace-quiz-result-1',
+        user_id: 'user-jwt-1',
+        success: true,
       }),
     });
   });

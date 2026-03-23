@@ -47,6 +47,24 @@ function getFirstArray(...values) {
   return []
 }
 
+function getFirstNumber(...values) {
+  for (const value of values) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value
+    }
+
+    if (typeof value === 'string' && value.trim()) {
+      const parsed = Number(value)
+
+      if (Number.isFinite(parsed)) {
+        return parsed
+      }
+    }
+  }
+
+  return null
+}
+
 function safeJsonParse(value) {
   if (typeof value !== 'string') {
     return null
@@ -132,6 +150,173 @@ function normalizeSupportContact(item) {
   }
 }
 
+function normalizeQuizQuestionType(value, hasOptions = false) {
+  const normalized = getFirstString(value).toLowerCase()
+
+  if (['multiple_choice', 'multiple-choice', 'multiple choice', 'checkbox', 'checkboxes'].includes(normalized)) {
+    return 'multiple_choice'
+  }
+
+  if (['single_choice', 'single-choice', 'single choice', 'radio', 'mcq', 'choice'].includes(normalized)) {
+    return 'single_choice'
+  }
+
+  if (['boolean', 'true_false', 'true-false', 'true false', 'yes_no', 'yes-no'].includes(normalized)) {
+    return 'boolean'
+  }
+
+  if (['text', 'short_text', 'short-text', 'open_text', 'open-text', 'free_text', 'free-text'].includes(normalized)) {
+    return 'text'
+  }
+
+  return hasOptions ? 'single_choice' : 'text'
+}
+
+function normalizeQuizOptionValue(value, questionType) {
+  if (questionType === 'boolean') {
+    if (typeof value === 'boolean') {
+      return value
+    }
+
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase()
+
+      if (['true', '1', 'yes', 'y', 'dung', 'correct'].includes(normalized)) {
+        return true
+      }
+
+      if (['false', '0', 'no', 'n', 'sai', 'incorrect'].includes(normalized)) {
+        return false
+      }
+    }
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value)
+  }
+
+  return value
+}
+
+function normalizeQuizOption(option, index, questionType) {
+  if (option === null || option === undefined) {
+    return null
+  }
+
+  if (typeof option === 'string' || typeof option === 'number' || typeof option === 'boolean') {
+    const value = normalizeQuizOptionValue(option, questionType)
+    const label =
+      typeof value === 'boolean'
+        ? value
+          ? 'Dung'
+          : 'Sai'
+        : String(value)
+
+    return {
+      id: `option-${index + 1}`,
+      value,
+      label,
+    }
+  }
+
+  if (typeof option !== 'object' || Array.isArray(option)) {
+    return null
+  }
+
+  const rawValue = option.value ?? option.id ?? option.code ?? option.key ?? option.label ?? option.text
+
+  if (rawValue === null || rawValue === undefined || rawValue === '') {
+    return null
+  }
+
+  const value = normalizeQuizOptionValue(rawValue, questionType)
+  const label =
+    getFirstString(option.label, option.text, option.title) ||
+    (typeof value === 'boolean' ? (value ? 'Dung' : 'Sai') : String(value))
+
+  return {
+    id: getFirstString(option.id, option.key, option.code) || `option-${index + 1}`,
+    value,
+    label,
+  }
+}
+
+function normalizeQuizQuestion(question) {
+  if (!question || typeof question !== 'object' || Array.isArray(question)) {
+    return null
+  }
+
+  const questionId = getFirstString(question.questionId, question.question_id, question.id)
+  const prompt = getFirstString(
+    question.prompt,
+    question.questionText,
+    question.question_text,
+    question.title,
+    question.label,
+    question.text,
+  )
+
+  if (!questionId || !prompt) {
+    return null
+  }
+
+  const rawOptions = getFirstArray(
+    question.options,
+    question.choices,
+    question.answers,
+    question.data?.options,
+    question.data?.choices,
+  )
+  const type = normalizeQuizQuestionType(question.type ?? question.questionType ?? question.question_type, rawOptions.length > 0)
+  const normalizedOptions = rawOptions
+    .map((option, index) => normalizeQuizOption(option, index, type))
+    .filter(Boolean)
+
+  return {
+    questionId,
+    prompt,
+    description: getFirstString(question.description, question.helpText, question.help_text, question.explanation),
+    type,
+    options:
+      type === 'boolean' && normalizedOptions.length === 0
+        ? [
+            { id: 'true', value: true, label: 'Dung' },
+            { id: 'false', value: false, label: 'Sai' },
+          ]
+        : normalizedOptions,
+    required: question.required === undefined ? true : normalizeBoolean(question.required),
+    orderNo: getFirstNumber(question.orderNo, question.order_no, question.order),
+  }
+}
+
+function normalizeQuizResult(result) {
+  if (!result || typeof result !== 'object' || Array.isArray(result)) {
+    return null
+  }
+
+  const score = getFirstNumber(result.score, result.totalScore, result.result?.score)
+  const maxScore = getFirstNumber(result.maxScore, result.max_score, result.totalPossibleScore)
+  const durationSeconds = getFirstNumber(result.durationSeconds, result.duration_seconds)
+  const submittedAt = getFirstString(result.submittedAt, result.submitted_at, result.completedAt, result.completed_at)
+  const attemptId = getFirstString(result.attemptId, result.attempt_id, result.id)
+  const quizId = getFirstString(result.quizId, result.quiz_id, result.templateId, result.template_id)
+  const summary = getFirstString(result.summary, result.message, result.feedback)
+
+  if (!attemptId && !quizId && score === null && maxScore === null && durationSeconds === null && !submittedAt && !summary) {
+    return null
+  }
+
+  return {
+    attemptId,
+    quizId,
+    score,
+    maxScore,
+    durationSeconds,
+    submittedAt,
+    summary,
+  }
+}
+
 function isChecklistPayloadType(type) {
   return ['checklist', 'onboarding-checklist', 'onboarding_checklist', 'tasks'].includes(type)
 }
@@ -144,6 +329,10 @@ function isSupportContactsPayloadType(type) {
     'support-directory',
     'support_directory',
   ].includes(type)
+}
+
+function isQuizPayloadType(type) {
+  return ['quiz', 'mini-quiz', 'mini_quiz', 'training-quiz', 'training_quiz'].includes(type)
 }
 
 export function normalizeUiPayload(payload) {
@@ -213,6 +402,83 @@ export function normalizeUiPayload(payload) {
       title: getFirstString(payload.title, payload.heading, payload.label) || 'Support contacts',
       description: getFirstString(payload.description, payload.summary, payload.subtitle),
       items: contacts,
+    }
+  }
+
+  const questions = getFirstArray(
+    payload.questions,
+    payload.items,
+    payload.quiz?.questions,
+    payload.data?.questions,
+    payload.data?.items,
+    payload.data?.quiz?.questions,
+  )
+    .map(normalizeQuizQuestion)
+    .filter(Boolean)
+
+  const result = normalizeQuizResult(
+    payload.result ??
+      payload.quizResult ??
+      payload.resultSummary ??
+      payload.latestResult ??
+      payload.attempt ??
+      payload.submission ??
+      payload.data?.result ??
+      payload.data?.quizResult ??
+      payload.data?.resultSummary,
+  )
+
+  if (isQuizPayloadType(payloadType) || questions.length > 0 || result) {
+    const quizId = getFirstString(
+      payload.quizId,
+      payload.quiz_id,
+      payload.id,
+      payload.templateId,
+      payload.template_id,
+      payload.quiz?.id,
+      payload.data?.quizId,
+      payload.data?.quiz_id,
+      result?.quizId,
+    )
+
+    if (!quizId) {
+      return null
+    }
+
+    const items = [...questions].sort((left, right) => {
+      const leftOrder = left.orderNo ?? Number.MAX_SAFE_INTEGER
+      const rightOrder = right.orderNo ?? Number.MAX_SAFE_INTEGER
+      return leftOrder - rightOrder
+    })
+
+    return {
+      type: 'quiz',
+      version: getFirstString(
+        payload.version,
+        payload.uiVersion,
+        payload.schemaVersion,
+        payload.schema_version,
+        payload.payloadVersion,
+        payload.data?.version,
+      ) || '1',
+      quizId,
+      title: getFirstString(payload.title, payload.heading, payload.label) || 'Mini quiz',
+      description: getFirstString(payload.description, payload.summary, payload.subtitle),
+      contextLabel: getFirstString(
+        payload.contextLabel,
+        payload.context_label,
+        payload.skillName,
+        payload.skill_name,
+        payload.courseTitle,
+        payload.course_title,
+        payload.topic,
+        payload.data?.contextLabel,
+      ),
+      difficulty: getFirstString(payload.difficulty, payload.level, payload.data?.difficulty),
+      questionCount: items.length || getFirstNumber(payload.questionCount, payload.question_count) || 0,
+      submitLabel: getFirstString(payload.submitLabel, payload.ctaLabel, payload.actionLabel) || 'Nop bai',
+      items,
+      result,
     }
   }
 

@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../store/authStore'
 import { chatService, normalizeChatMessage } from '../services/chatService'
 import { onboardingService } from '../services/onboardingService'
+import { trainingService } from '../services/trainingService'
 
 const SUGGESTED_PROMPTS = [
   'Toi phai lam gi vao ngay dau?',
@@ -35,6 +36,178 @@ function getChecklistButtonLabel(isCompleted, isSubmitting) {
   }
 
   return isCompleted ? 'Da hoan thanh' : 'Danh dau hoan thanh'
+}
+
+function formatQuizScore(result) {
+  if (!result || result.score === null || result.score === undefined) {
+    return null
+  }
+
+  if (result.maxScore !== null && result.maxScore !== undefined) {
+    return `${result.score}/${result.maxScore}`
+  }
+
+  return String(result.score)
+}
+
+function formatDurationLabel(durationSeconds) {
+  if (typeof durationSeconds !== 'number' || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+    return null
+  }
+
+  if (durationSeconds < 60) {
+    return `${durationSeconds}s`
+  }
+
+  const minutes = Math.floor(durationSeconds / 60)
+  const seconds = durationSeconds % 60
+
+  if (seconds === 0) {
+    return `${minutes}m`
+  }
+
+  return `${minutes}m ${seconds}s`
+}
+
+function buildQuizInitialAnswers(payload) {
+  return payload.items.reduce((accumulator, question) => {
+    if (question.type === 'multiple_choice') {
+      accumulator[question.questionId] = []
+      return accumulator
+    }
+
+    accumulator[question.questionId] = ''
+    return accumulator
+  }, {})
+}
+
+function normalizeAnswerForSubmission(question, answer) {
+  if (question.type === 'multiple_choice') {
+    return Array.isArray(answer) ? answer : []
+  }
+
+  if (question.type === 'boolean') {
+    return answer === true || answer === false ? answer : ''
+  }
+
+  if (typeof answer === 'string') {
+    return answer.trim()
+  }
+
+  return answer ?? ''
+}
+
+function hasAnswerValue(question, answer) {
+  if (question.type === 'multiple_choice') {
+    return Array.isArray(answer) && answer.length > 0
+  }
+
+  if (question.type === 'boolean') {
+    return answer === true || answer === false
+  }
+
+  return typeof answer === 'string' ? Boolean(answer.trim()) : Boolean(answer)
+}
+
+function buildQuizSubmissionAnswers(payload, answers) {
+  return payload.items.map((question) => ({
+    questionId: question.questionId,
+    answer: normalizeAnswerForSubmission(question, answers[question.questionId]),
+  }))
+}
+
+function QuizQuestionField({ question, value, disabled, onChange }) {
+  if (question.type === 'multiple_choice') {
+    const selectedValues = Array.isArray(value) ? value : []
+
+    return (
+      <div className="chat-quiz-option-list" role="group" aria-label={question.prompt}>
+        {question.options.map((option) => {
+          const checked = selectedValues.includes(option.value)
+
+          return (
+            <label key={option.id} className="chat-quiz-option">
+              <input
+                type="checkbox"
+                checked={checked}
+                disabled={disabled}
+                onChange={(event) => {
+                  const nextValue = event.target.checked
+                    ? [...selectedValues, option.value]
+                    : selectedValues.filter((entry) => entry !== option.value)
+
+                  onChange(nextValue)
+                }}
+              />
+              <span>{option.label}</span>
+            </label>
+          )
+        })}
+      </div>
+    )
+  }
+
+  if (question.type === 'boolean' || question.type === 'single_choice') {
+    return (
+      <div className="chat-quiz-option-list" role="radiogroup" aria-label={question.prompt}>
+        {question.options.map((option) => {
+          const checked = value === option.value
+
+          return (
+            <label key={option.id} className="chat-quiz-option">
+              <input
+                type="radio"
+                name={`quiz-question-${question.questionId}`}
+                checked={checked}
+                disabled={disabled}
+                onChange={() => onChange(option.value)}
+              />
+              <span>{option.label}</span>
+            </label>
+          )
+        })}
+      </div>
+    )
+  }
+
+  return (
+    <textarea
+      className="field-control chat-quiz-textarea"
+      value={typeof value === 'string' ? value : ''}
+      disabled={disabled}
+      onChange={(event) => onChange(event.target.value)}
+      rows={3}
+      placeholder="Nhap cau tra loi ngan"
+    />
+  )
+}
+
+function QuizResultSummary({ result }) {
+  const scoreLabel = formatQuizScore(result)
+  const durationLabel = formatDurationLabel(result?.durationSeconds)
+  const submittedLabel = result?.submittedAt
+    ? new Date(result.submittedAt).toLocaleString()
+    : null
+
+  return (
+    <section className="chat-quiz-result" aria-live="polite">
+      <div className="chat-ui-card__header">
+        <div>
+          <p className="section-tag chat-ui-card__eyebrow">Ket qua</p>
+          <h4 className="chat-checklist-item__title">Da nop bai</h4>
+        </div>
+        {scoreLabel ? <span className="chat-status-pill chat-status-pill--success">Diem {scoreLabel}</span> : null}
+      </div>
+
+      <div className="chat-meta-pill-row">
+        {durationLabel ? <span className="chat-meta-pill">Thoi gian {durationLabel}</span> : null}
+        {submittedLabel ? <span className="chat-meta-pill">Nop luc {submittedLabel}</span> : null}
+        {result?.attemptId ? <span className="chat-meta-pill">Attempt #{result.attemptId}</span> : null}
+      </div>
+
+      {result?.summary ? <p className="chat-ui-card__copy">{result.summary}</p> : null}
+    </section>
+  )
 }
 
 function ChecklistCard({ payload, completingTaskIds, taskErrors, onCompleteTask }) {
@@ -112,6 +285,89 @@ function ChecklistCard({ payload, completingTaskIds, taskErrors, onCompleteTask 
   )
 }
 
+function QuizCard({
+  message,
+  payload,
+  quizDrafts,
+  quizSubmittingState,
+  quizErrors,
+  onAnswerChange,
+  onSubmitQuiz,
+}) {
+  const draftKey = message.id || payload.quizId
+  const answers = quizDrafts[draftKey] || buildQuizInitialAnswers(payload)
+  const isSubmitting = Boolean(quizSubmittingState[draftKey])
+  const submitError = quizErrors[draftKey]
+  const hasResult = Boolean(payload.result)
+
+  return (
+    <div className="chat-ui-card chat-ui-card--quiz">
+      <div className="chat-ui-card__header">
+        <div>
+          <p className="section-tag chat-ui-card__eyebrow">Mini quiz</p>
+          <h3 className="chat-ui-card__title">{payload.title}</h3>
+        </div>
+        <span className="chat-ui-card__count">{payload.questionCount || payload.items.length} cau</span>
+      </div>
+
+      {payload.description ? <p className="chat-ui-card__copy">{payload.description}</p> : null}
+
+      <div className="chat-meta-pill-row">
+        {payload.contextLabel ? <span className="chat-meta-pill">{payload.contextLabel}</span> : null}
+        {payload.difficulty ? <span className="chat-meta-pill">{payload.difficulty}</span> : null}
+        {payload.version ? <span className="chat-meta-pill">v{payload.version}</span> : null}
+      </div>
+
+      <div className="chat-quiz-question-list">
+        {payload.items.map((question, index) => (
+          <article key={question.questionId} className="chat-quiz-question-card">
+            <div className="chat-checklist-item__header">
+              <span className="chat-checklist-item__order">{String(index + 1).padStart(2, '0')}</span>
+              <span className="chat-meta-pill">{question.type.replace('_', ' ')}</span>
+            </div>
+
+            <div className="chat-checklist-item__body">
+              <div>
+                <h4 className="chat-checklist-item__title">{question.prompt}</h4>
+                {question.description ? <p className="chat-checklist-item__copy">{question.description}</p> : null}
+              </div>
+
+              {hasResult ? (
+                <div className="chat-quiz-answer-pill">
+                  <span className="chat-meta-pill">Da nop</span>
+                  <p className="chat-ui-card__copy">Da gui cau tra loi</p>
+                </div>
+              ) : (
+                <QuizQuestionField
+                  question={question}
+                  value={answers[question.questionId]}
+                  disabled={isSubmitting}
+                  onChange={(nextValue) => onAnswerChange(draftKey, question.questionId, nextValue)}
+                />
+              )}
+            </div>
+          </article>
+        ))}
+      </div>
+
+      {submitError ? <p className="chat-inline-error">{submitError}</p> : null}
+
+      {hasResult ? <QuizResultSummary result={payload.result} /> : null}
+
+      {!hasResult ? (
+        <button
+          type="button"
+          className="chat-task-action"
+          onClick={() => onSubmitQuiz(message, payload)}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? 'Dang nop bai...' : payload.submitLabel}
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
 function SupportContactsCard({ payload }) {
   return (
     <div className="chat-ui-card chat-ui-card--contacts">
@@ -157,7 +413,18 @@ function SupportContactsCard({ payload }) {
   )
 }
 
-function StructuredAssistantContent({ message, completingTaskIds, taskErrors, onCompleteTask, isPending }) {
+function StructuredAssistantContent({
+  message,
+  completingTaskIds,
+  taskErrors,
+  onCompleteTask,
+  quizDrafts,
+  quizSubmittingState,
+  quizErrors,
+  onQuizAnswerChange,
+  onSubmitQuiz,
+  isPending,
+}) {
   const hasText = Boolean(message.content?.trim())
   const fallbackText = !hasText && isPending ? '...' : message.content
 
@@ -177,6 +444,18 @@ function StructuredAssistantContent({ message, completingTaskIds, taskErrors, on
       {message.uiPayload?.type === 'support-contacts' ? (
         <SupportContactsCard payload={message.uiPayload} />
       ) : null}
+
+      {message.uiPayload?.type === 'quiz' ? (
+        <QuizCard
+          message={message}
+          payload={message.uiPayload}
+          quizDrafts={quizDrafts}
+          quizSubmittingState={quizSubmittingState}
+          quizErrors={quizErrors}
+          onAnswerChange={onQuizAnswerChange}
+          onSubmitQuiz={onSubmitQuiz}
+        />
+      ) : null}
     </>
   )
 }
@@ -189,6 +468,11 @@ function ChatMessageBubble({
   completingTaskIds,
   taskErrors,
   onCompleteTask,
+  quizDrafts,
+  quizSubmittingState,
+  quizErrors,
+  onQuizAnswerChange,
+  onSubmitQuiz,
 }) {
   const isUser = message.sender_type === 'user'
   const isAssistant = message.sender_type === 'assistant'
@@ -209,6 +493,11 @@ function ChatMessageBubble({
             completingTaskIds={completingTaskIds}
             taskErrors={taskErrors}
             onCompleteTask={onCompleteTask}
+            quizDrafts={quizDrafts}
+            quizSubmittingState={quizSubmittingState}
+            quizErrors={quizErrors}
+            onQuizAnswerChange={onQuizAnswerChange}
+            onSubmitQuiz={onSubmitQuiz}
             isPending={isPending}
           />
         ) : (
@@ -229,6 +518,14 @@ function getTaskCompletionError(error) {
   )
 }
 
+function getQuizSubmissionError(error) {
+  return (
+    error?.response?.data?.error?.message ??
+    error?.message ??
+    'Khong the nop quiz luc nay. Vui long thu lai.'
+  )
+}
+
 export function ChatDashboardPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -245,6 +542,9 @@ export function ChatDashboardPage() {
   const [queuedPrompt, setQueuedPrompt] = useState(null)
   const [completingTaskIds, setCompletingTaskIds] = useState({})
   const [taskErrors, setTaskErrors] = useState({})
+  const [quizDrafts, setQuizDrafts] = useState({})
+  const [quizSubmittingState, setQuizSubmittingState] = useState({})
+  const [quizErrors, setQuizErrors] = useState({})
   const messagesEndRef = useRef(null)
 
   const submitQueuedPrompt = useEffectEvent(async (prompt) => {
@@ -301,6 +601,9 @@ export function ChatDashboardPage() {
     setCurrentConversationId(null)
     setTaskErrors({})
     setCompletingTaskIds({})
+    setQuizDrafts({})
+    setQuizSubmittingState({})
+    setQuizErrors({})
     setSessionKey(`session-${user.id}-${Date.now()}`)
   }
 
@@ -310,6 +613,9 @@ export function ChatDashboardPage() {
     setMessages([])
     setTaskErrors({})
     setCompletingTaskIds({})
+    setQuizDrafts({})
+    setQuizSubmittingState({})
+    setQuizErrors({})
     setCurrentConversationId(conversation.id)
     setSessionKey(conversation.session_key)
   }
@@ -383,6 +689,101 @@ export function ChatDashboardPage() {
       setCompletingTaskIds((current) => {
         const nextPending = { ...current }
         delete nextPending[taskId]
+        return nextPending
+      })
+    }
+  }
+
+  function handleQuizAnswerChange(messageId, questionId, nextValue) {
+    setQuizDrafts((current) => {
+      const existingDraft = current[messageId] || {}
+
+      return {
+        ...current,
+        [messageId]: {
+          ...existingDraft,
+          [questionId]: nextValue,
+        },
+      }
+    })
+  }
+
+  function updateQuizResult(messageId, result) {
+    const applyQuizResult = (existingMessages = []) =>
+      existingMessages.map((message) => {
+        if (message.id !== messageId || message.uiPayload?.type !== 'quiz') {
+          return message
+        }
+
+        return normalizeChatMessage({
+          ...message,
+          uiPayload: {
+            ...message.uiPayload,
+            result,
+          },
+        })
+      })
+
+    setMessages((previousMessages) => applyQuizResult(previousMessages))
+    queryClient.setQueriesData({ queryKey: ['conversation-messages'] }, applyQuizResult)
+  }
+
+  async function handleSubmitQuiz(message, payload) {
+    const messageId = message.id || payload.quizId
+
+    if (!messageId || !payload.quizId || quizSubmittingState[messageId]) {
+      return
+    }
+
+    const answers = quizDrafts[messageId] || buildQuizInitialAnswers(payload)
+    const missingRequiredQuestion = payload.items.find(
+      (question) => question.required && !hasAnswerValue(question, answers[question.questionId]),
+    )
+
+    if (missingRequiredQuestion) {
+      setQuizErrors((current) => ({
+        ...current,
+        [messageId]: 'Vui long tra loi tat ca cau hoi truoc khi nop bai.',
+      }))
+      return
+    }
+
+    setQuizSubmittingState((current) => ({
+      ...current,
+      [messageId]: true,
+    }))
+    setQuizErrors((current) => {
+      const nextErrors = { ...current }
+      delete nextErrors[messageId]
+      return nextErrors
+    })
+
+    try {
+      const submittedAnswers = buildQuizSubmissionAnswers(payload, answers)
+      const submitResult = await trainingService.submitQuiz({
+        quizId: payload.quizId,
+        assistantMessageId: messageId,
+        answers: submittedAnswers,
+        durationSeconds: null,
+      })
+
+      const attemptId = submitResult?.attemptId
+      const fetchedResult = attemptId ? await trainingService.getQuizResult(attemptId) : null
+      const nextResult = {
+        ...submitResult,
+        ...fetchedResult,
+      }
+
+      updateQuizResult(messageId, nextResult)
+    } catch (error) {
+      setQuizErrors((current) => ({
+        ...current,
+        [messageId]: getQuizSubmissionError(error),
+      }))
+    } finally {
+      setQuizSubmittingState((current) => {
+        const nextPending = { ...current }
+        delete nextPending[messageId]
         return nextPending
       })
     }
@@ -620,6 +1021,11 @@ export function ChatDashboardPage() {
                 completingTaskIds={completingTaskIds}
                 taskErrors={taskErrors}
                 onCompleteTask={handleCompleteTask}
+                quizDrafts={quizDrafts}
+                quizSubmittingState={quizSubmittingState}
+                quizErrors={quizErrors}
+                onQuizAnswerChange={handleQuizAnswerChange}
+                onSubmitQuiz={handleSubmitQuiz}
               />
             ))
           )}

@@ -43,7 +43,7 @@ export class ToolCallLoggerService {
           agent_group_id: verifiedPayload ? metadata.agentGroupId : null,
           tool_id: metadata.toolId,
           api_id: metadata.apiId,
-          user_id: verifiedPayload?.userId ?? null,
+          user_id: verifiedPayload?.userId ?? this.resolveUserId(request),
           request_payload: this.serializeJson({
             request: this.buildRequestPayload(request, metadata, requiredScopes),
             authContext: {
@@ -88,7 +88,7 @@ export class ToolCallLoggerService {
           agent_group_id: metadata.agentGroupId,
           tool_id: metadata.toolId,
           api_id: metadata.apiId,
-          user_id: verifiedPayload?.userId ?? null,
+          user_id: verifiedPayload?.userId ?? this.resolveUserId(request),
           request_payload: this.serializeJson({
             request: this.buildRequestPayload(request, metadata),
             authContext: {
@@ -226,6 +226,10 @@ export class ToolCallLoggerService {
     }
 
     return null;
+  }
+
+  private resolveUserId(request: InternalToolRequest) {
+    return typeof request.user?.userId === 'string' ? request.user.userId : null;
   }
 
   private serializeJson(value: unknown): Prisma.InputJsonValue {

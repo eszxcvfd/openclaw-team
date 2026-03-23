@@ -11,6 +11,7 @@ describe('ConversationService', () => {
       findMany: jest.Mock;
     };
     messages: {
+      create: jest.Mock;
       findMany: jest.Mock;
     };
   };
@@ -22,6 +23,7 @@ describe('ConversationService', () => {
         findMany: jest.fn(),
       },
       messages: {
+        create: jest.fn(),
         findMany: jest.fn(),
       },
     };
@@ -47,6 +49,7 @@ describe('ConversationService', () => {
           id: 'msg-1',
           sender_type: 'user',
           content: 'Hello',
+          metadata: { uiPayload: { type: 'quiz', version: 1 } },
           created_at: new Date('2026-03-22T08:00:00.000Z'),
         },
       ]);
@@ -58,6 +61,7 @@ describe('ConversationService', () => {
           id: 'msg-1',
           sender_type: 'user',
           content: 'Hello',
+          metadata: { uiPayload: { type: 'quiz', version: 1 } },
           created_at: new Date('2026-03-22T08:00:00.000Z'),
         },
       ]);
@@ -78,6 +82,7 @@ describe('ConversationService', () => {
           id: true,
           sender_type: true,
           content: true,
+          metadata: true,
           created_at: true,
         },
       });
@@ -113,6 +118,36 @@ describe('ConversationService', () => {
           preview: 'Latest assistant reply',
         },
       ]);
+    });
+  });
+
+  describe('saveMessage', () => {
+    it('should persist arbitrary metadata for later history rehydration', async () => {
+      prisma.messages.create.mockResolvedValue({ id: 'msg-quiz' });
+
+      await service.saveMessage(
+        'conv-1',
+        'assistant',
+        'Quiz ready',
+        undefined,
+        {
+          uiPayloadVersion: 1,
+          uiPayload: { type: 'quiz', quizId: 'quiz-1' },
+        },
+      );
+
+      expect(prisma.messages.create).toHaveBeenCalledWith({
+        data: {
+          conversation_id: 'conv-1',
+          sender_type: 'assistant',
+          sender_user_id: undefined,
+          content: 'Quiz ready',
+          metadata: {
+            uiPayloadVersion: 1,
+            uiPayload: { type: 'quiz', quizId: 'quiz-1' },
+          },
+        },
+      });
     });
   });
 });

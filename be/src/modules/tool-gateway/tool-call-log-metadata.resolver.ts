@@ -14,6 +14,7 @@ export class ToolCallLogMetadataResolver {
     const method = request.method.toUpperCase();
     const routePath = this.resolveRoutePath(request);
     const normalizedPath = this.normalizeRoutePath(request, routePath);
+    const resolvedAgentCode = agentCode ?? this.inferAgentCode(normalizedPath);
 
     const [apiRecord, agentGroupRecord] = await Promise.all([
       this.prisma.backend_api_catalog.findFirst({
@@ -25,10 +26,10 @@ export class ToolCallLogMetadataResolver {
           id: true,
         },
       }),
-      agentCode
+      resolvedAgentCode
         ? this.prisma.agent_groups.findUnique({
             where: {
-              code: agentCode,
+              code: resolvedAgentCode,
             },
             select: {
               id: true,
@@ -94,5 +95,16 @@ export class ToolCallLogMetadataResolver {
     }
 
     return value.startsWith('/') ? value : `/${value}`;
+  }
+
+  private inferAgentCode(normalizedPath: string) {
+    if (
+      normalizedPath === '/api/quiz/submit' ||
+      /\/api\/quiz\/[^/]+\/result$/.test(normalizedPath)
+    ) {
+      return 'learning_training_agent';
+    }
+
+    return undefined;
   }
 }

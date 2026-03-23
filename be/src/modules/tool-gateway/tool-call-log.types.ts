@@ -5,6 +5,9 @@ import { InternalTokenPayload } from '../auth/internal-token.service';
 export type InternalToolRequest = Request & {
   internalAgent?: InternalTokenPayload;
   traceId?: string;
+  user?: {
+    userId?: string;
+  };
 };
 
 export interface ToolCallCatalogMetadata {

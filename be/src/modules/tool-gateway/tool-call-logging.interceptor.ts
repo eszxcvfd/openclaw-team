@@ -49,6 +49,10 @@ export class ToolCallLoggingInterceptor implements NestInterceptor {
   private isInternalToolRequest(request: InternalToolRequest) {
     const route = request.originalUrl ?? request.url ?? '';
 
-    return route.startsWith('/internal/tools/');
+    return (
+      route.startsWith('/internal/tools/') ||
+      route.startsWith('/api/quiz/submit') ||
+      /\/api\/quiz\/[^/]+\/result(?:\?|$)/.test(route)
+    );
   }
 }

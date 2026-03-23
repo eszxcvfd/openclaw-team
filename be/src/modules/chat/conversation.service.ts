@@ -1,5 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+
+type MessageMetadata = Prisma.InputJsonObject;
 
 @Injectable()
 export class ConversationService {
@@ -35,14 +38,20 @@ export class ConversationService {
     });
   }
 
-  async saveMessage(conversationId: string, senderType: 'user' | 'assistant' | 'system' | 'tool', content: string, userId?: string, metadata: any = {}) {
+  async saveMessage(
+    conversationId: string,
+    senderType: 'user' | 'assistant' | 'system' | 'tool',
+    content: string,
+    userId?: string,
+    metadata: MessageMetadata = {},
+  ) {
     return this.prisma.messages.create({
       data: {
         conversation_id: conversationId,
         sender_type: senderType,
         sender_user_id: userId,
         content,
-        metadata,
+        metadata: this.toJsonObject(metadata),
       },
     });
   }
@@ -69,6 +78,7 @@ export class ConversationService {
         id: true,
         sender_type: true,
         content: true,
+        metadata: true,
         created_at: true,
       },
     });
@@ -94,5 +104,9 @@ export class ConversationService {
       ...conversation,
       preview: messages[0]?.content?.trim() || null,
     }));
+  }
+
+  private toJsonObject(value: Record<string, unknown>) {
+    return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonObject;
   }
 }
