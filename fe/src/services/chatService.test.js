@@ -145,4 +145,72 @@ describe('chatService quiz normalization', () => {
     expect(message.uiPayload).toBeNull()
     expect(message.content).toBe('Quiz fallback text')
   })
+
+  it('normalizes learning-path payload metadata into roadmap card data', () => {
+    const payload = normalizeUiPayload({
+      type: 'learning-path',
+      version: 1,
+      pathId: 'path-101',
+      title: 'Backend Intern Path',
+      description: 'Lo trinh hoc ca nhan hoa',
+      contextLabel: 'Gap: Node.js',
+      generated: true,
+      items: [
+        {
+          orderNo: 2,
+          courseId: 'course-2',
+          courseCode: 'node-101',
+          courseTitle: 'Node.js Basics',
+          required: true,
+          reason: 'Gap hien tai la Node.js',
+          estimatedHours: 6,
+          status: 'not_started',
+        },
+        {
+          orderNo: 1,
+          courseId: 'course-1',
+          courseCode: 'prod-overview',
+          courseTitle: 'Product Overview',
+          required: true,
+          reason: 'Mon nen tang',
+          estimatedHours: 2,
+          status: 'not_started',
+        },
+      ],
+      summary: 'Bat dau voi Product Overview.',
+    })
+
+    expect(payload).toEqual({
+      type: 'learning-path',
+      version: '1',
+      pathId: 'path-101',
+      title: 'Backend Intern Path',
+      description: 'Lo trinh hoc ca nhan hoa',
+      contextLabel: 'Gap: Node.js',
+      generated: true,
+      summary: 'Bat dau voi Product Overview.',
+      items: [
+        {
+          orderNo: 1,
+          courseId: 'course-1',
+          courseCode: 'prod-overview',
+          courseTitle: 'Product Overview',
+          required: true,
+          reason: 'Mon nen tang',
+          estimatedHours: 2,
+          status: 'not_started',
+        },
+        {
+          orderNo: 2,
+          courseId: 'course-2',
+          courseCode: 'node-101',
+          courseTitle: 'Node.js Basics',
+          required: true,
+          reason: 'Gap hien tai la Node.js',
+          estimatedHours: 6,
+          status: 'not_started',
+        },
+      ],
+    })
+  })
 })

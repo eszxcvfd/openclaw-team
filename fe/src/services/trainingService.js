@@ -5,6 +5,21 @@ function unwrapResponseData(response) {
 }
 
 export const trainingService = {
+  getTrainingRecommendations: async () => {
+    const response = await apiClient.get('/api/me/training-recommendations')
+    return unwrapResponseData(response)
+  },
+
+  getLearningPath: async () => {
+    const response = await apiClient.get('/api/me/learning-path')
+    return unwrapResponseData(response)
+  },
+
+  generateLearningPath: async (payload = {}) => {
+    const response = await apiClient.post('/api/me/learning-path/generate', payload)
+    return unwrapResponseData(response)
+  },
+
   submitQuiz: async ({ quizId, assistantMessageId, answers, durationSeconds }) => {
     const response = await apiClient.post('/api/quiz/submit', {
       quizId,

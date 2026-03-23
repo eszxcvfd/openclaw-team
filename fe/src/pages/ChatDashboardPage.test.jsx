@@ -234,4 +234,49 @@ describe('ChatDashboardPage quiz card', () => {
     expect(screen.queryByRole('button', { name: 'Nop bai' })).not.toBeInTheDocument()
     expect(trainingService.submitQuiz).not.toHaveBeenCalled()
   })
+
+  it('renders inline learning-path roadmap cards from persisted history without breaking quiz flows', async () => {
+    chatService.getMessages.mockResolvedValue([
+      normalizeChatMessage({
+        id: 'assistant-path-1',
+        sender_type: 'assistant',
+        content: 'Toi da goi y lo trinh hoc cho ban.',
+        metadata: {
+          uiPayload: {
+            type: 'learning-path',
+            version: 1,
+            pathId: 'path-1',
+            title: 'Backend Intern Path',
+            description: 'Lo trinh hoc ca nhan hoa',
+            contextLabel: 'Gap: Node.js',
+            generated: true,
+            summary: 'Bat dau voi Product Overview.',
+            items: [
+              {
+                orderNo: 1,
+                courseId: 'course-1',
+                courseCode: 'prod-overview',
+                courseTitle: 'Product Overview',
+                required: true,
+                reason: 'Mon nen tang',
+                estimatedHours: 2,
+                status: 'not_started',
+              },
+            ],
+          },
+        },
+      }),
+    ])
+
+    renderPage()
+
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: /Quiz conversation/i }))
+
+    expect(await screen.findByText('Backend Intern Path')).toBeInTheDocument()
+    expect(screen.getByText('Toi da goi y lo trinh hoc cho ban.')).toBeInTheDocument()
+    expect(screen.getByText('Gap: Node.js')).toBeInTheDocument()
+    expect(screen.getByText('Product Overview')).toBeInTheDocument()
+    expect(screen.getByText('Mon nen tang')).toBeInTheDocument()
+  })
 })

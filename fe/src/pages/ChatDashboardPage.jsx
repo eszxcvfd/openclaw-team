@@ -210,6 +210,14 @@ function QuizResultSummary({ result }) {
   )
 }
 
+function formatEstimatedHours(hours) {
+  if (typeof hours !== 'number' || !Number.isFinite(hours) || hours <= 0) {
+    return null
+  }
+
+  return `${hours}h`
+}
+
 function ChecklistCard({ payload, completingTaskIds, taskErrors, onCompleteTask }) {
   return (
     <div className="chat-ui-card chat-ui-card--checklist">
@@ -368,6 +376,60 @@ function QuizCard({
   )
 }
 
+function LearningPathCard({ payload }) {
+  return (
+    <div className="chat-ui-card chat-ui-card--learning-path">
+      <div className="chat-ui-card__header">
+        <div>
+          <p className="section-tag chat-ui-card__eyebrow">Learning path</p>
+          <h3 className="chat-ui-card__title">{payload.title}</h3>
+        </div>
+        <span className="chat-ui-card__count">{payload.items.length} khoa hoc</span>
+      </div>
+
+      {payload.description ? <p className="chat-ui-card__copy">{payload.description}</p> : null}
+
+      <div className="chat-meta-pill-row">
+        {payload.contextLabel ? <span className="chat-meta-pill">{payload.contextLabel}</span> : null}
+        {payload.generated ? <span className="chat-meta-pill">Ca nhan hoa</span> : null}
+        {payload.version ? <span className="chat-meta-pill">v{payload.version}</span> : null}
+      </div>
+
+      <div className="chat-checklist-grid">
+        {payload.items.map((item, index) => (
+          <article key={`${item.courseId}-${index}`} className="chat-checklist-item">
+            <div className="chat-checklist-item__header">
+              <span className="chat-checklist-item__order">
+                {String(item.orderNo ?? index + 1).padStart(2, '0')}
+              </span>
+              <span className={item.required ? 'chat-status-pill chat-status-pill--success' : 'chat-status-pill'}>
+                {item.required ? 'Bat buoc' : 'De xuat'}
+              </span>
+            </div>
+
+            <div className="chat-checklist-item__body">
+              <div>
+                <h4 className="chat-checklist-item__title">{item.courseTitle}</h4>
+                {item.reason ? <p className="chat-checklist-item__copy">{item.reason}</p> : null}
+              </div>
+
+              <div className="chat-meta-pill-row">
+                {item.courseCode ? <span className="chat-meta-pill">{item.courseCode}</span> : null}
+                {formatEstimatedHours(item.estimatedHours) ? (
+                  <span className="chat-meta-pill">{formatEstimatedHours(item.estimatedHours)}</span>
+                ) : null}
+                {item.status ? <span className="chat-meta-pill">{item.status}</span> : null}
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      {payload.summary ? <p className="chat-ui-card__copy">{payload.summary}</p> : null}
+    </div>
+  )
+}
+
 function SupportContactsCard({ payload }) {
   return (
     <div className="chat-ui-card chat-ui-card--contacts">
@@ -455,6 +517,10 @@ function StructuredAssistantContent({
           onAnswerChange={onQuizAnswerChange}
           onSubmitQuiz={onSubmitQuiz}
         />
+      ) : null}
+
+      {message.uiPayload?.type === 'learning-path' ? (
+        <LearningPathCard payload={message.uiPayload} />
       ) : null}
     </>
   )

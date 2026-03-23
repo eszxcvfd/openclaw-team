@@ -16,6 +16,7 @@ exports.TrainingInternalController = void 0;
 const common_1 = require("@nestjs/common");
 const agent_scope_decorator_1 = require("../auth/decorators/agent-scope.decorator");
 const internal_agent_guard_1 = require("../auth/guards/internal-agent.guard");
+const generate_learning_path_dto_1 = require("./dto/generate-learning-path.dto");
 const generate_quiz_dto_1 = require("./dto/generate-quiz.dto");
 const training_service_1 = require("./training.service");
 let TrainingInternalController = class TrainingInternalController {
@@ -23,11 +24,48 @@ let TrainingInternalController = class TrainingInternalController {
     constructor(trainingService) {
         this.trainingService = trainingService;
     }
+    async getTrainingRecommendations(request) {
+        return this.trainingService.getTrainingRecommendationsForUser(request.internalAgent.userId);
+    }
+    async getLearningPath(request) {
+        return this.trainingService.getLearningPathForUser(request.internalAgent.userId);
+    }
+    async generateLearningPath(request, body) {
+        return this.trainingService.generateLearningPathForUser(request.internalAgent.userId, body);
+    }
     async generateQuiz(request, body) {
         return this.trainingService.generateQuizForUser(request.internalAgent.userId, body);
     }
 };
 exports.TrainingInternalController = TrainingInternalController;
+__decorate([
+    (0, common_1.Get)('me/training-recommendations'),
+    (0, common_1.UseGuards)(internal_agent_guard_1.InternalAgentGuard),
+    (0, agent_scope_decorator_1.AgentScope)('read:training'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], TrainingInternalController.prototype, "getTrainingRecommendations", null);
+__decorate([
+    (0, common_1.Get)('me/learning-path'),
+    (0, common_1.UseGuards)(internal_agent_guard_1.InternalAgentGuard),
+    (0, agent_scope_decorator_1.AgentScope)('read:training'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], TrainingInternalController.prototype, "getLearningPath", null);
+__decorate([
+    (0, common_1.Post)('me/learning-path/generate'),
+    (0, common_1.UseGuards)(internal_agent_guard_1.InternalAgentGuard),
+    (0, agent_scope_decorator_1.AgentScope)('write:training'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, generate_learning_path_dto_1.GenerateLearningPathDto]),
+    __metadata("design:returntype", Promise)
+], TrainingInternalController.prototype, "generateLearningPath", null);
 __decorate([
     (0, common_1.Post)('quiz/generate'),
     (0, common_1.UseGuards)(internal_agent_guard_1.InternalAgentGuard),

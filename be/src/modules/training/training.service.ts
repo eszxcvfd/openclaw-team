@@ -2,11 +2,51 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import { GenerateLearningPathDto } from './dto/generate-learning-path.dto';
 import {
   GenerateQuizDto,
   quizQuestionTypes,
 } from './dto/generate-quiz.dto';
 import { SubmitQuizDto } from './dto/submit-quiz.dto';
+
+export interface LearningRecommendationDto {
+  courseId: string;
+  title: string;
+  reason: string;
+  priority: number;
+}
+
+export interface LearningPathItemDto {
+  orderNo: number;
+  courseId: string;
+  courseCode: string;
+  courseTitle: string;
+  required: boolean;
+  reason: string;
+  estimatedHours: number | null;
+  status: string;
+}
+
+export interface LearningPathPayloadDto {
+  type: 'learning-path';
+  version: 1;
+  pathId: string;
+  title: string;
+  description: string;
+  contextLabel: string;
+  generated: boolean;
+  items: LearningPathItemDto[];
+  summary: string;
+}
+
+export interface LearningPathDto {
+  id: string;
+  name: string;
+  generated: boolean;
+  summary: string;
+  items: LearningPathItemDto[];
+  payload: LearningPathPayloadDto;
+}
 
 interface QuizOptionDto {
   value: string;
@@ -105,12 +145,280 @@ type QuizAssistantMessageRecord = {
   metadata: unknown;
 };
 
+type UserTrainingProfileRecord = {
+  id: string;
+  position_id: string | null;
+  department_id: string | null;
+};
+
+type UserSkillRecord = {
+  skill_id: string;
+  level_no: number;
+  skills?: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
+};
+
+type RoleSkillRequirementRecord = {
+  skill_id: string;
+  required_level: number;
+  priority: number;
+  skills?: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
+};
+
+type CourseRecommendationRecord = {
+  id: string;
+  code: string;
+  title: string;
+  description: string | null;
+  level_no: number;
+  duration_hours: unknown;
+  is_active: boolean;
+  course_skills: Array<{
+    skill_id: string;
+    outcome_level: number;
+  }>;
+};
+
+type LearningPathTemplateRecord = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  target_level: number | null;
+  learning_path_items: Array<{
+    order_no: number;
+    required: boolean;
+    courses: {
+      id: string;
+      code: string;
+      title: string;
+      duration_hours: unknown;
+    };
+  }>;
+};
+
+type UserLearningPathRecord = {
+  id: string;
+  status: string;
+  generated_payload: unknown;
+  learning_paths?: LearningPathTemplateRecord | null;
+};
+
 type CanonicalAnswer = boolean | string | string[] | null;
 type QuizQuestionType = (typeof quizQuestionTypes)[number];
 
 @Injectable()
 export class TrainingService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async getTrainingRecommendationsForUser(
+    userId: string,
+  ): Promise<LearningRecommendationDto[]> {
+    const snapshot = await this.getLearningRecommendationSnapshot(userId);
+
+    if (snapshot.requirements.length === 0) {
+      const fallbackTemplate = await this.findPreferredLearningPathTemplate(
+        snapshot.user,
+        undefined,
+      );
+      return this.buildFallbackRecommendationsFromTemplate(fallbackTemplate);
+    }
+
+    const completedCourseIds = new Set(
+      snapshot.userCourses
+        .filter((course) => course.status === 'completed')
+        .map((course) => course.course_id),
+    );
+
+    const rankedRecommendations = snapshot.courses
+      .filter((course) => course.is_active && !completedCourseIds.has(course.id))
+      .map((course) =>
+        this.rankCourseRecommendation(
+          course,
+          snapshot.userSkillLevels,
+          snapshot.requirements,
+        ),
+      )
+      .filter(
+        (
+          course,
+        ): course is {
+          course: CourseRecommendationRecord;
+          score: number;
+          reason: string;
+        } => Boolean(course),
+      )
+      .sort((left, right) => {
+        if (right.score !== left.score) {
+          return right.score - left.score;
+        }
+
+        if (left.course.level_no !== right.course.level_no) {
+          return left.course.level_no - right.course.level_no;
+        }
+
+        return left.course.title.localeCompare(right.course.title);
+      });
+
+    if (rankedRecommendations.length === 0) {
+      return this.buildFallbackRecommendationsFromTemplate(
+        await this.findPreferredLearningPathTemplate(snapshot.user, undefined),
+      );
+    }
+
+    return rankedRecommendations.map((entry, index) => ({
+      courseId: entry.course.id,
+      title: entry.course.title,
+      reason: entry.reason,
+      priority: index + 1,
+    }));
+  }
+
+  async getLearningPathForUser(userId: string): Promise<LearningPathDto> {
+    const currentPath = await this.prisma.user_learning_paths.findFirst({
+      where: {
+        user_id: userId,
+        status: 'active',
+      },
+      orderBy: [{ updated_at: 'desc' }, { generated_at: 'desc' }],
+      select: {
+        id: true,
+        status: true,
+        generated_payload: true,
+        learning_paths: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            description: true,
+            target_level: true,
+            learning_path_items: {
+              select: {
+                order_no: true,
+                required: true,
+                courses: {
+                  select: {
+                    id: true,
+                    code: true,
+                    title: true,
+                    duration_hours: true,
+                  },
+                },
+              },
+              orderBy: [{ order_no: 'asc' }],
+            },
+          },
+        },
+      },
+    });
+
+    if (!currentPath) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Learning path not found.',
+        details: {},
+      });
+    }
+
+    return this.mapLearningPathRecord(currentPath as UserLearningPathRecord);
+  }
+
+  async generateLearningPathForUser(
+    userId: string,
+    input: GenerateLearningPathDto = {},
+  ): Promise<LearningPathDto> {
+    const snapshot = await this.getLearningRecommendationSnapshot(userId);
+    const targetLevel = this.normalizeTargetLevel(input.targetLevel);
+    const maxCourses = Math.min(input.maxCourses ?? 5, 20);
+    const includeMandatoryCourses = input.includeMandatoryCourses ?? true;
+    const template = await this.findPreferredLearningPathTemplate(
+      snapshot.user,
+      targetLevel,
+    );
+    const recommendations = await this.getTrainingRecommendationsForUser(userId);
+    const templateItems = template ? this.mapTemplateItems(template, recommendations) : [];
+    const recommendedItems = this.buildGeneratedItemsFromRecommendations(
+      recommendations,
+      snapshot.courses,
+      maxCourses,
+    );
+    const mergedItems = this.mergeLearningPathItems(
+      includeMandatoryCourses
+        ? templateItems
+        : templateItems.filter((item) => !item.required),
+      recommendedItems,
+      maxCourses,
+    );
+    const summary = mergedItems.length > 0
+      ? `Bat dau voi ${mergedItems[0].courseTitle}.`
+      : 'Hien tai chua co khoa hoc phu hop. Vui long cap nhat ky nang hoac lien he quan ly dao tao.';
+    const contextLabel = this.buildLearningPathContextLabel(
+      snapshot.requirements,
+      snapshot.userSkills,
+    );
+
+    await this.prisma.user_learning_paths.updateMany({
+      where: {
+        user_id: userId,
+        status: 'active',
+      },
+      data: {
+        status: 'inactive',
+      },
+    });
+
+    const createdPath = await this.prisma.user_learning_paths.create({
+      data: {
+        user_id: userId,
+        learning_path_id: template?.id ?? null,
+        generated_payload: this.toJsonObject({
+          generated: true,
+          summary,
+          contextLabel,
+          items: mergedItems,
+        }),
+        status: 'active',
+      },
+      select: {
+        id: true,
+        status: true,
+        generated_payload: true,
+        learning_paths: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            description: true,
+            target_level: true,
+            learning_path_items: {
+              select: {
+                order_no: true,
+                required: true,
+                courses: {
+                  select: {
+                    id: true,
+                    code: true,
+                    title: true,
+                    duration_hours: true,
+                  },
+                },
+              },
+              orderBy: [{ order_no: 'asc' }],
+            },
+          },
+        },
+      },
+    });
+
+    return this.mapLearningPathRecord(createdPath as UserLearningPathRecord);
+  }
 
   async generateQuizForUser(
     userId: string,
@@ -280,6 +588,364 @@ export class TrainingService {
     }
 
     return this.mapAttemptResult(attempt as QuizAttemptRecord);
+  }
+
+  private async getLearningRecommendationSnapshot(userId: string) {
+    const user = (await this.prisma.users.findFirst({
+      where: {
+        id: userId,
+      },
+      select: {
+        id: true,
+        position_id: true,
+        department_id: true,
+      },
+    })) as UserTrainingProfileRecord | null;
+
+    if (!user) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'User not found.',
+        details: {},
+      });
+    }
+
+    const [userSkills, requirements, userCourses, courses] = await Promise.all([
+      this.prisma.user_skills.findMany({
+        where: {
+          user_id: userId,
+        },
+        select: {
+          skill_id: true,
+          level_no: true,
+          skills: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+            },
+          },
+        },
+      }) as Promise<UserSkillRecord[]>,
+      user.position_id
+        ? (this.prisma.role_skill_requirements.findMany({
+            where: {
+              position_id: user.position_id,
+            },
+            orderBy: [{ priority: 'asc' }, { required_level: 'desc' }],
+            select: {
+              skill_id: true,
+              required_level: true,
+              priority: true,
+              skills: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                },
+              },
+            },
+          }) as Promise<RoleSkillRequirementRecord[]>)
+        : Promise.resolve([] as RoleSkillRequirementRecord[]),
+      this.prisma.user_courses.findMany({
+        where: {
+          user_id: userId,
+        },
+        select: {
+          course_id: true,
+          status: true,
+        },
+      }) as Promise<Array<{ course_id: string; status: string }>>,
+      this.prisma.courses.findMany({
+        where: {
+          is_active: true,
+        },
+        select: {
+          id: true,
+          code: true,
+          title: true,
+          description: true,
+          level_no: true,
+          duration_hours: true,
+          is_active: true,
+          course_skills: {
+            select: {
+              skill_id: true,
+              outcome_level: true,
+            },
+          },
+        },
+      }) as Promise<CourseRecommendationRecord[]>,
+    ]);
+
+    return {
+      user,
+      userSkills,
+      requirements,
+      userCourses,
+      courses,
+      userSkillLevels: new Map(userSkills.map((skill) => [skill.skill_id, skill.level_no])),
+    };
+  }
+
+  private rankCourseRecommendation(
+    course: CourseRecommendationRecord,
+    userSkillLevels: Map<string, number>,
+    requirements: RoleSkillRequirementRecord[],
+  ) {
+    let score = 0;
+    const reasons: string[] = [];
+
+    for (const courseSkill of course.course_skills) {
+      const requirement = requirements.find((entry) => entry.skill_id === courseSkill.skill_id);
+      if (!requirement) {
+        continue;
+      }
+
+      const userLevel = userSkillLevels.get(courseSkill.skill_id) ?? 0;
+      const missingLevel = requirement.required_level - userLevel;
+      const reachableLevel = Math.min(courseSkill.outcome_level, requirement.required_level) - userLevel;
+
+      if (missingLevel <= 0 || reachableLevel <= 0) {
+        continue;
+      }
+
+      score += reachableLevel * 10 + Math.max(0, 5 - requirement.priority);
+      reasons.push(
+        `Ban dang thieu ky nang ${requirement.skills?.name ?? 'can thiet'} o muc ${requirement.required_level}.`,
+      );
+    }
+
+    if (score === 0) {
+      return null;
+    }
+
+    return {
+      course,
+      score,
+      reason: reasons[0] ?? `Khoa hoc ${course.title} phu hop voi khoang trong ky nang hien tai.`,
+    };
+  }
+
+  private async findPreferredLearningPathTemplate(
+    user: UserTrainingProfileRecord,
+    targetLevel?: number,
+  ): Promise<LearningPathTemplateRecord | null> {
+    return (await this.prisma.learning_paths.findFirst({
+      where: {
+        is_active: true,
+        position_id: user.position_id ?? undefined,
+        department_id: user.department_id ?? undefined,
+        target_level: targetLevel,
+      },
+      orderBy: [{ updated_at: 'desc' }, { created_at: 'desc' }],
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        description: true,
+        target_level: true,
+        learning_path_items: {
+          select: {
+            order_no: true,
+            required: true,
+            courses: {
+              select: {
+                id: true,
+                code: true,
+                title: true,
+                duration_hours: true,
+              },
+            },
+          },
+          orderBy: [{ order_no: 'asc' }],
+        },
+      },
+    })) as LearningPathTemplateRecord | null;
+  }
+
+  private buildFallbackRecommendationsFromTemplate(
+    template: LearningPathTemplateRecord | null,
+  ): LearningRecommendationDto[] {
+    if (!template) {
+      return [];
+    }
+
+    return template.learning_path_items.map((item, index) => ({
+      courseId: item.courses.id,
+      title: item.courses.title,
+      reason: `Khoa hoc nay thuoc lo trinh ${template.name}.`,
+      priority: index + 1,
+    }));
+  }
+
+  private mapTemplateItems(
+    template: LearningPathTemplateRecord,
+    recommendations: LearningRecommendationDto[],
+  ): LearningPathItemDto[] {
+    return template.learning_path_items.map((item) => {
+      const recommendation = recommendations.find((entry) => entry.courseId === item.courses.id);
+
+      return {
+        orderNo: item.order_no,
+        courseId: item.courses.id,
+        courseCode: item.courses.code,
+        courseTitle: item.courses.title,
+        required: item.required,
+        reason: recommendation?.reason ?? 'Mon nen tang bat buoc',
+        estimatedHours: this.toNumber(item.courses.duration_hours),
+        status: 'not_started',
+      };
+    });
+  }
+
+  private buildGeneratedItemsFromRecommendations(
+    recommendations: LearningRecommendationDto[],
+    courses: CourseRecommendationRecord[],
+    maxCourses: number,
+  ): LearningPathItemDto[] {
+    return recommendations.slice(0, maxCourses).map((recommendation, index) => {
+      const course = courses.find((entry) => entry.id === recommendation.courseId);
+
+      return {
+        orderNo: index + 1,
+        courseId: recommendation.courseId,
+        courseCode: course?.code ?? '',
+        courseTitle: recommendation.title,
+        required: index === 0,
+        reason: recommendation.reason,
+        estimatedHours: course ? this.toNumber(course.duration_hours) : null,
+        status: 'not_started',
+      };
+    });
+  }
+
+  private mergeLearningPathItems(
+    primaryItems: LearningPathItemDto[],
+    secondaryItems: LearningPathItemDto[],
+    maxCourses: number,
+  ): LearningPathItemDto[] {
+    const seenCourseIds = new Set<string>();
+
+    return [...primaryItems, ...secondaryItems]
+      .filter((item) => {
+        if (!item.courseId || seenCourseIds.has(item.courseId)) {
+          return false;
+        }
+
+        seenCourseIds.add(item.courseId);
+        return true;
+      })
+      .slice(0, maxCourses)
+      .map((item, index) => ({
+        ...item,
+        orderNo: index + 1,
+      }));
+  }
+
+  private mapLearningPathRecord(record: UserLearningPathRecord): LearningPathDto {
+    const payloadRecord = this.toRecord(record.generated_payload);
+    const payloadItems = this.normalizeLearningPathItems(payloadRecord.items);
+    const templateItems = record.learning_paths ? this.mapTemplateItems(record.learning_paths, []) : [];
+    const items = payloadItems.length > 0
+      ? this.mergeLearningPathItems(payloadItems, templateItems, 20)
+      : templateItems;
+    const name = this.toStringValue(
+      payloadRecord.name,
+      payloadRecord.title,
+      record.learning_paths?.name,
+      record.learning_paths?.code,
+      record.id,
+    );
+    const summary = this.toStringValue(
+      payloadRecord.summary,
+      items[0] ? `Bat dau voi ${items[0].courseTitle}.` : 'Lo trinh hoc hien tai.',
+    );
+    const payload: LearningPathPayloadDto = {
+      type: 'learning-path',
+      version: 1,
+      pathId: record.id,
+      title: name,
+      description: this.toStringValue(payloadRecord.description, record.learning_paths?.description),
+      contextLabel: this.toStringValue(payloadRecord.contextLabel, payloadRecord.context_label),
+      generated: payloadRecord.generated !== false,
+      items,
+      summary,
+    };
+
+    return {
+      id: record.id,
+      name,
+      generated: payload.generated,
+      summary,
+      items,
+      payload,
+    };
+  }
+
+  private normalizeLearningPathItems(value: unknown): LearningPathItemDto[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    const normalizedItems: Array<LearningPathItemDto | null> = value.map((item, index) => {
+        const record = this.toRecord(item);
+        const courseId = this.toStringValue(record.courseId, record.course_id, record.id);
+        const courseTitle = this.toStringValue(record.courseTitle, record.course_title, record.title);
+
+        if (!courseId || !courseTitle) {
+          return null;
+        }
+
+        return {
+          orderNo: this.toNumber(record.orderNo ?? record.order_no) || index + 1,
+          courseId,
+          courseCode: this.toStringValue(record.courseCode, record.course_code),
+          courseTitle,
+          required: Boolean(record.required),
+          reason: this.toStringValue(record.reason, record.summary),
+          estimatedHours: this.toNumber(record.estimatedHours ?? record.estimated_hours),
+          status: this.toStringValue(record.status, 'not_started'),
+        };
+      });
+
+    return normalizedItems
+      .filter((item): item is LearningPathItemDto => item !== null)
+      .sort((left, right) => left.orderNo - right.orderNo);
+  }
+
+  private buildLearningPathContextLabel(
+    requirements: RoleSkillRequirementRecord[],
+    userSkills: UserSkillRecord[],
+  ) {
+    const userLevels = new Map(userSkills.map((skill) => [skill.skill_id, skill.level_no]));
+    const gaps = requirements
+      .filter((requirement) => (userLevels.get(requirement.skill_id) ?? 0) < requirement.required_level)
+      .slice(0, 3)
+      .map((requirement) => requirement.skills?.name ?? requirement.skill_id);
+
+    return gaps.length > 0
+      ? `Gap: ${gaps.join(', ')}`
+      : 'Lo trinh hoc hien tai phu hop voi ky nang dang co.';
+  }
+
+  private normalizeTargetLevel(value?: string) {
+    const normalized = (value ?? '').trim().toLowerCase();
+
+    if (normalized === 'intern') {
+      return 1;
+    }
+    if (normalized === 'junior') {
+      return 2;
+    }
+    if (normalized === 'mid') {
+      return 3;
+    }
+    if (normalized === 'senior') {
+      return 4;
+    }
+
+    return undefined;
   }
 
   private async findQuizTemplate(userId: string, input: GenerateQuizDto) {

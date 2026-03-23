@@ -13,6 +13,9 @@ describe('TrainingInternalController', () => {
     beforeEach(async () => {
         service = {
             generateQuizForUser: jest.fn(),
+            getTrainingRecommendationsForUser: jest.fn(),
+            getLearningPathForUser: jest.fn(),
+            generateLearningPathForUser: jest.fn(),
         };
         const module = await testing_1.Test.createTestingModule({
             controllers: [training_internal_controller_1.TrainingInternalController],
@@ -52,6 +55,35 @@ describe('TrainingInternalController', () => {
         expect(Reflect.getMetadata(constants_1.METHOD_METADATA, training_internal_controller_1.TrainingInternalController.prototype.generateQuiz)).toBe(common_1.RequestMethod.POST);
         expect(Reflect.getMetadata(constants_1.GUARDS_METADATA, training_internal_controller_1.TrainingInternalController.prototype.generateQuiz)).toContain(internal_agent_guard_1.InternalAgentGuard);
         expect(Reflect.getMetadata(agent_scope_decorator_1.AGENT_SCOPE_KEY, training_internal_controller_1.TrainingInternalController.prototype.generateQuiz)).toEqual(['write:training']);
+    });
+    it('should expose a guarded GET /me/training-recommendations route with training read scope', async () => {
+        const payload = [{ courseId: 'course-1', title: 'Node.js Intermediate', reason: 'Gap', priority: 1 }];
+        service.getTrainingRecommendationsForUser.mockResolvedValue(payload);
+        await expect(controller.getTrainingRecommendations({ internalAgent: { userId: 'user-1' } })).resolves.toEqual(payload);
+        expect(service.getTrainingRecommendationsForUser).toHaveBeenCalledWith('user-1');
+        expect(Reflect.getMetadata(constants_1.PATH_METADATA, training_internal_controller_1.TrainingInternalController.prototype.getTrainingRecommendations)).toBe('me/training-recommendations');
+        expect(Reflect.getMetadata(constants_1.METHOD_METADATA, training_internal_controller_1.TrainingInternalController.prototype.getTrainingRecommendations)).toBe(common_1.RequestMethod.GET);
+        expect(Reflect.getMetadata(agent_scope_decorator_1.AGENT_SCOPE_KEY, training_internal_controller_1.TrainingInternalController.prototype.getTrainingRecommendations)).toEqual(['read:training']);
+    });
+    it('should expose a guarded GET /me/learning-path route with training read scope', async () => {
+        const payload = { id: 'path-1', name: 'Backend Path', generated: true, items: [] };
+        service.getLearningPathForUser.mockResolvedValue(payload);
+        await expect(controller.getLearningPath({ internalAgent: { userId: 'user-1' } })).resolves.toEqual(payload);
+        expect(service.getLearningPathForUser).toHaveBeenCalledWith('user-1');
+        expect(Reflect.getMetadata(constants_1.PATH_METADATA, training_internal_controller_1.TrainingInternalController.prototype.getLearningPath)).toBe('me/learning-path');
+        expect(Reflect.getMetadata(constants_1.METHOD_METADATA, training_internal_controller_1.TrainingInternalController.prototype.getLearningPath)).toBe(common_1.RequestMethod.GET);
+        expect(Reflect.getMetadata(agent_scope_decorator_1.AGENT_SCOPE_KEY, training_internal_controller_1.TrainingInternalController.prototype.getLearningPath)).toEqual(['read:training']);
+    });
+    it('should expose a guarded POST /me/learning-path/generate route with training write scope', async () => {
+        const payload = { id: 'path-1', name: 'Backend Path', generated: true, items: [] };
+        service.generateLearningPathForUser.mockResolvedValue(payload);
+        await expect(controller.generateLearningPath({ internalAgent: { userId: 'user-1' } }, { targetLevel: 'intern' })).resolves.toEqual(payload);
+        expect(service.generateLearningPathForUser).toHaveBeenCalledWith('user-1', {
+            targetLevel: 'intern',
+        });
+        expect(Reflect.getMetadata(constants_1.PATH_METADATA, training_internal_controller_1.TrainingInternalController.prototype.generateLearningPath)).toBe('me/learning-path/generate');
+        expect(Reflect.getMetadata(constants_1.METHOD_METADATA, training_internal_controller_1.TrainingInternalController.prototype.generateLearningPath)).toBe(common_1.RequestMethod.POST);
+        expect(Reflect.getMetadata(agent_scope_decorator_1.AGENT_SCOPE_KEY, training_internal_controller_1.TrainingInternalController.prototype.generateLearningPath)).toEqual(['write:training']);
     });
 });
 //# sourceMappingURL=training.internal.controller.spec.js.map

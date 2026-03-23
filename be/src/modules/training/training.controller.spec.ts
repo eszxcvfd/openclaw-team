@@ -10,12 +10,18 @@ describe('TrainingController', () => {
   let service: {
     submitQuizAttempt: jest.Mock;
     getQuizAttemptResult: jest.Mock;
+    getTrainingRecommendationsForUser: jest.Mock;
+    getLearningPathForUser: jest.Mock;
+    generateLearningPathForUser: jest.Mock;
   };
 
   beforeEach(async () => {
     service = {
       submitQuizAttempt: jest.fn(),
       getQuizAttemptResult: jest.fn(),
+      getTrainingRecommendationsForUser: jest.fn(),
+      getLearningPathForUser: jest.fn(),
+      generateLearningPathForUser: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -123,5 +129,62 @@ describe('TrainingController', () => {
         data: 'id',
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('should return gap-based recommendations for the authenticated user', async () => {
+    const result = [
+      {
+        courseId: 'course-1',
+        title: 'Node.js Intermediate',
+        reason: 'Gap on Node.js',
+        priority: 1,
+      },
+    ];
+    service.getTrainingRecommendationsForUser.mockResolvedValue(result);
+
+    await expect(
+      controller.getTrainingRecommendations({ user: { userId: 'user-1' } } as never),
+    ).resolves.toEqual(result);
+
+    expect(service.getTrainingRecommendationsForUser).toHaveBeenCalledWith('user-1');
+  });
+
+  it('should return the current learning path for the authenticated user', async () => {
+    const result = {
+      id: 'path-1',
+      name: 'Backend Path',
+      generated: true,
+      items: [],
+    };
+    service.getLearningPathForUser.mockResolvedValue(result);
+
+    await expect(
+      controller.getLearningPath({ user: { userId: 'user-1' } } as never),
+    ).resolves.toEqual(result);
+
+    expect(service.getLearningPathForUser).toHaveBeenCalledWith('user-1');
+  });
+
+  it('should generate a learning path for the authenticated user', async () => {
+    const result = {
+      id: 'path-1',
+      name: 'Backend Path',
+      generated: true,
+      items: [],
+    };
+    service.generateLearningPathForUser.mockResolvedValue(result);
+
+    await expect(
+      controller.generateLearningPath(
+        { user: { userId: 'user-1' } } as never,
+        { targetLevel: 'intern', maxCourses: 5, includeMandatoryCourses: true },
+      ),
+    ).resolves.toEqual(result);
+
+    expect(service.generateLearningPathForUser).toHaveBeenCalledWith('user-1', {
+      targetLevel: 'intern',
+      maxCourses: 5,
+      includeMandatoryCourses: true,
+    });
   });
 });

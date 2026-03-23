@@ -9,8 +9,28 @@ describe('TrainingService', () => {
     let prisma;
     beforeEach(async () => {
         prisma = {
+            users: {
+                findFirst: jest.fn(),
+            },
             user_courses: {
                 findMany: jest.fn(),
+            },
+            user_skills: {
+                findMany: jest.fn(),
+            },
+            role_skill_requirements: {
+                findMany: jest.fn(),
+            },
+            courses: {
+                findMany: jest.fn(),
+            },
+            learning_paths: {
+                findFirst: jest.fn(),
+            },
+            user_learning_paths: {
+                findFirst: jest.fn(),
+                updateMany: jest.fn(),
+                create: jest.fn(),
             },
             quiz_templates: {
                 findMany: jest.fn(),
@@ -327,6 +347,189 @@ describe('TrainingService', () => {
                 },
                 select: expect.any(Object),
             });
+        });
+    });
+    describe('getTrainingRecommendationsForUser', () => {
+        it('should rank active unmet courses ahead of completed or inactive ones', async () => {
+            prisma.users.findFirst.mockResolvedValue({
+                id: 'user-1',
+                position_id: 'position-1',
+                department_id: 'department-1',
+            });
+            prisma.user_skills.findMany.mockResolvedValue([
+                {
+                    skill_id: 'skill-node',
+                    level_no: 1,
+                    skills: { id: 'skill-node', code: 'node', name: 'Node.js' },
+                },
+            ]);
+            prisma.role_skill_requirements.findMany.mockResolvedValue([
+                {
+                    skill_id: 'skill-node',
+                    required_level: 3,
+                    priority: 1,
+                    skills: { id: 'skill-node', code: 'node', name: 'Node.js' },
+                },
+            ]);
+            prisma.user_courses.findMany.mockResolvedValue([
+                { course_id: 'course-completed', status: 'completed' },
+            ]);
+            prisma.learning_paths.findFirst.mockResolvedValue(null);
+            prisma.courses.findMany.mockResolvedValue([
+                {
+                    id: 'course-active',
+                    code: 'node-201',
+                    title: 'Node.js Intermediate',
+                    description: 'Grow Node.js depth',
+                    level_no: 2,
+                    duration_hours: 8,
+                    is_active: true,
+                    course_skills: [{ skill_id: 'skill-node', outcome_level: 3 }],
+                },
+                {
+                    id: 'course-completed',
+                    code: 'node-101',
+                    title: 'Node.js Basics',
+                    description: 'Already finished',
+                    level_no: 1,
+                    duration_hours: 4,
+                    is_active: true,
+                    course_skills: [{ skill_id: 'skill-node', outcome_level: 2 }],
+                },
+                {
+                    id: 'course-inactive',
+                    code: 'node-old',
+                    title: 'Node.js Legacy',
+                    description: 'Inactive',
+                    level_no: 2,
+                    duration_hours: 6,
+                    is_active: false,
+                    course_skills: [{ skill_id: 'skill-node', outcome_level: 3 }],
+                },
+            ]);
+            await expect(service.getTrainingRecommendationsForUser('user-1')).resolves.toEqual([
+                {
+                    courseId: 'course-active',
+                    title: 'Node.js Intermediate',
+                    reason: expect.stringContaining('Node.js'),
+                    priority: 1,
+                },
+            ]);
+        });
+    });
+    describe('generateLearningPathForUser', () => {
+        it('should replace older active rows and persist a single active generated path', async () => {
+            prisma.users.findFirst.mockResolvedValue({
+                id: 'user-1',
+                position_id: 'position-1',
+                department_id: 'department-1',
+            });
+            prisma.user_skills.findMany.mockResolvedValue([
+                {
+                    skill_id: 'skill-node',
+                    level_no: 1,
+                    skills: { id: 'skill-node', code: 'node', name: 'Node.js' },
+                },
+            ]);
+            prisma.role_skill_requirements.findMany.mockResolvedValue([
+                {
+                    skill_id: 'skill-node',
+                    required_level: 3,
+                    priority: 1,
+                    skills: { id: 'skill-node', code: 'node', name: 'Node.js' },
+                },
+            ]);
+            prisma.user_courses.findMany.mockResolvedValue([]);
+            prisma.learning_paths.findFirst.mockResolvedValue({
+                id: 'path-template-1',
+                code: 'backend-intern',
+                name: 'Backend Intern Path',
+                description: 'Template path',
+                target_level: 1,
+                learning_path_items: [
+                    {
+                        order_no: 1,
+                        required: true,
+                        courses: {
+                            id: 'course-1',
+                            code: 'prod-overview',
+                            title: 'Product Overview',
+                            duration_hours: 2,
+                        },
+                    },
+                ],
+            });
+            prisma.courses.findMany.mockResolvedValue([]);
+            prisma.user_learning_paths.updateMany.mockResolvedValue({ count: 1 });
+            prisma.user_learning_paths.create.mockResolvedValue({
+                id: 'user-path-1',
+                status: 'active',
+                generated_payload: {
+                    generated: true,
+                    summary: 'Bat dau voi Product Overview.',
+                    items: [
+                        {
+                            orderNo: 1,
+                            courseId: 'course-1',
+                            courseCode: 'prod-overview',
+                            courseTitle: 'Product Overview',
+                            required: true,
+                            reason: 'Mon nen tang bat buoc',
+                            estimatedHours: 2,
+                            status: 'not_started',
+                        },
+                    ],
+                },
+                learning_paths: {
+                    id: 'path-template-1',
+                    code: 'backend-intern',
+                    name: 'Backend Intern Path',
+                    description: 'Template path',
+                    target_level: 1,
+                    learning_path_items: [
+                        {
+                            order_no: 1,
+                            required: true,
+                            courses: {
+                                id: 'course-1',
+                                code: 'prod-overview',
+                                title: 'Product Overview',
+                                duration_hours: 2,
+                            },
+                        },
+                    ],
+                },
+            });
+            await expect(service.generateLearningPathForUser('user-1', {
+                targetLevel: 'intern',
+                maxCourses: 5,
+                includeMandatoryCourses: true,
+            })).resolves.toEqual(expect.objectContaining({
+                id: 'user-path-1',
+                generated: true,
+                items: [
+                    expect.objectContaining({
+                        orderNo: 1,
+                        courseId: 'course-1',
+                    }),
+                ],
+            }));
+            expect(prisma.user_learning_paths.updateMany).toHaveBeenCalledWith({
+                where: {
+                    user_id: 'user-1',
+                    status: 'active',
+                },
+                data: {
+                    status: 'inactive',
+                },
+            });
+            expect(prisma.user_learning_paths.create).toHaveBeenCalledWith(expect.objectContaining({
+                data: expect.objectContaining({
+                    user_id: 'user-1',
+                    status: 'active',
+                    learning_path_id: 'path-template-1',
+                }),
+            }));
         });
     });
 });

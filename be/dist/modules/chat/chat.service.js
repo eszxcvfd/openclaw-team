@@ -34,9 +34,15 @@ let ChatService = class ChatService {
     }
     async mockStreamingResponse(conversationId, userId, message, eventStream, promptContext) {
         const quizPayload = await this.buildQuizPayloadIfRequested(userId, message);
+        const learningPath = quizPayload
+            ? null
+            : await this.buildLearningPathIfRequested(userId, message);
+        const uiPayload = quizPayload ?? learningPath?.payload ?? null;
         const fullResponse = quizPayload
             ? 'Toi da tao mot mini quiz ngan de ban tu danh gia nhanh ngay trong khung chat nay.'
-            : 'Chao ban! Toi la tro ly OpenClaw. He thong dang trong qua trinh hoan thien cac module nghiep vu. Toi co the giup gi cho ban hom nay?';
+            : learningPath
+                ? `Toi da goi y lo trinh hoc cho ban. ${learningPath.summary || ''}`.trim()
+                : 'Chao ban! Toi la tro ly OpenClaw. He thong dang trong qua trinh hoan thien cac module nghiep vu. Toi co the giup gi cho ban hom nay?';
         const words = fullResponse.split(' ');
         let currentText = '';
         for (let i = 0; i < words.length; i++) {
@@ -44,14 +50,14 @@ let ChatService = class ChatService {
             currentText += (i === 0 ? '' : ' ') + words[i];
             eventStream.next({ data: { chunk: `${words[i]} `, full: currentText } });
         }
-        if (quizPayload) {
+        if (uiPayload) {
             eventStream.next({
                 data: {
-                    uiPayload: quizPayload,
+                    uiPayload,
                 },
             });
         }
-        await this.conversationService.saveMessage(conversationId, 'assistant', fullResponse, undefined, this.buildAssistantMetadata(quizPayload));
+        await this.conversationService.saveMessage(conversationId, 'assistant', fullResponse, undefined, this.buildAssistantMetadata(uiPayload));
         eventStream.complete();
     }
     async buildQuizPayloadIfRequested(userId, message) {
@@ -67,14 +73,34 @@ let ChatService = class ChatService {
             return null;
         }
     }
+    async buildLearningPathIfRequested(userId, message) {
+        if (!this.looksLikeLearningPathRequest(message)) {
+            return null;
+        }
+        try {
+            return await this.trainingService.generateLearningPathForUser(userId, {
+                queryText: message,
+                includeMandatoryCourses: true,
+            });
+        }
+        catch {
+            return null;
+        }
+    }
     looksLikeQuizRequest(message) {
         return /(quiz|trac nghiem|kiem tra|test)/i.test(message);
     }
-    buildAssistantMetadata(quizPayload) {
+    looksLikeLearningPathRequest(message) {
+        return /(lo trinh|learning path|goi y hoc|nen hoc|khoa nao truoc|dao tao)/i.test(message);
+    }
+    buildAssistantMetadata(uiPayload) {
+        const normalizedPayload = uiPayload && typeof uiPayload === 'object' && !Array.isArray(uiPayload)
+            ? uiPayload
+            : null;
         return JSON.parse(JSON.stringify({
             orchestration: 'mock',
-            uiPayloadVersion: quizPayload?.version ?? null,
-            uiPayload: quizPayload,
+            uiPayloadVersion: normalizedPayload?.version ?? null,
+            uiPayload: normalizedPayload,
         }));
     }
 };

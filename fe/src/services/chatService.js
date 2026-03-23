@@ -335,6 +335,34 @@ function isQuizPayloadType(type) {
   return ['quiz', 'mini-quiz', 'mini_quiz', 'training-quiz', 'training_quiz'].includes(type)
 }
 
+function isLearningPathPayloadType(type) {
+  return ['learning-path', 'learning_path', 'roadmap', 'learning-roadmap', 'learning_roadmap'].includes(type)
+}
+
+function normalizeLearningPathItem(item) {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) {
+    return null
+  }
+
+  const courseId = getFirstString(item.courseId, item.course_id, item.id)
+  const courseTitle = getFirstString(item.courseTitle, item.course_title, item.title, item.name)
+
+  if (!courseId || !courseTitle) {
+    return null
+  }
+
+  return {
+    orderNo: getFirstNumber(item.orderNo, item.order_no, item.order) ?? Number.MAX_SAFE_INTEGER,
+    courseId,
+    courseCode: getFirstString(item.courseCode, item.course_code, item.code),
+    courseTitle,
+    required: normalizeBoolean(item.required),
+    reason: getFirstString(item.reason, item.summary, item.description),
+    estimatedHours: getFirstNumber(item.estimatedHours, item.estimated_hours, item.durationHours, item.duration_hours),
+    status: getFirstString(item.status) || 'not_started',
+  }
+}
+
 export function normalizeUiPayload(payload) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     return null
@@ -479,6 +507,54 @@ export function normalizeUiPayload(payload) {
       submitLabel: getFirstString(payload.submitLabel, payload.ctaLabel, payload.actionLabel) || 'Nop bai',
       items,
       result,
+    }
+  }
+
+  const learningPathItems = getFirstArray(
+    payload.items,
+    payload.pathItems,
+    payload.learningPath,
+    payload.roadmap,
+    payload.data?.items,
+    payload.data?.pathItems,
+    payload.data?.learningPath,
+  )
+    .map(normalizeLearningPathItem)
+    .filter(Boolean)
+
+  if (isLearningPathPayloadType(payloadType) || learningPathItems.length > 0) {
+    const pathId = getFirstString(
+      payload.pathId,
+      payload.path_id,
+      payload.learningPathId,
+      payload.learning_path_id,
+      payload.id,
+      payload.data?.pathId,
+    )
+
+    if (!pathId || learningPathItems.length === 0) {
+      return null
+    }
+
+    const items = [...learningPathItems].sort((left, right) => left.orderNo - right.orderNo)
+
+    return {
+      type: 'learning-path',
+      version: getFirstString(
+        payload.version,
+        payload.uiVersion,
+        payload.schemaVersion,
+        payload.schema_version,
+        payload.payloadVersion,
+        payload.data?.version,
+      ) || '1',
+      pathId,
+      title: getFirstString(payload.title, payload.heading, payload.label) || 'Learning path',
+      description: getFirstString(payload.description, payload.summary, payload.subtitle),
+      contextLabel: getFirstString(payload.contextLabel, payload.context_label, payload.skillGap, payload.skill_gap),
+      generated: payload.generated === undefined ? true : normalizeBoolean(payload.generated),
+      summary: getFirstString(payload.summary, payload.nextStepLabel, payload.next_step_label),
+      items,
     }
   }
 

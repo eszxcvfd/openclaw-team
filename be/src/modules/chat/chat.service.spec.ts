@@ -15,6 +15,7 @@ describe('ChatService', () => {
   };
   let trainingService: {
     generateQuizForUser: jest.Mock;
+    generateLearningPathForUser: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -31,6 +32,7 @@ describe('ChatService', () => {
 
     trainingService = {
       generateQuizForUser: jest.fn(),
+      generateLearningPathForUser: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -164,6 +166,85 @@ describe('ChatService', () => {
         uiPayload: expect.objectContaining({
           type: 'quiz',
           quizId: 'quiz-1',
+        }),
+      }),
+    );
+  });
+
+  it('should emit and persist versioned learning-path uiPayload metadata for recommendation requests', async () => {
+    conversationService.getOrCreateConversation.mockResolvedValue({
+      id: 'conv-path',
+    });
+    conversationService.saveMessage.mockResolvedValue(undefined);
+    contextBuilderService.build.mockResolvedValue({
+      user: { id: 'user-1' },
+      session: { conversationId: 'conv-path' },
+      allowedResources: { documents: [], tools: [], scopes: [] },
+    });
+    trainingService.generateQuizForUser.mockResolvedValue(null);
+    trainingService.generateLearningPathForUser.mockResolvedValue({
+      id: 'path-1',
+      name: 'Backend Intern Path',
+      generated: true,
+      summary: 'Bat dau voi Product Overview.',
+      payload: {
+        type: 'learning-path',
+        version: 1,
+        pathId: 'path-1',
+        title: 'Backend Intern Path',
+        description: 'Lo trinh hoc ca nhan hoa',
+        contextLabel: 'Gap: Node.js',
+        generated: true,
+        items: [
+          {
+            orderNo: 1,
+            courseId: 'course-1',
+            courseCode: 'prod-overview',
+            courseTitle: 'Product Overview',
+            required: true,
+            reason: 'Mon nen tang bat buoc',
+            estimatedHours: 2,
+            status: 'not_started',
+          },
+        ],
+        summary: 'Bat dau voi Product Overview.',
+      },
+      items: [],
+    });
+
+    const stream = await service.processMessage(
+      'user-1',
+      'Toi nen hoc khoa nao truoc?',
+      'session-path',
+    );
+    const events: any[] = [];
+    const completion = new Promise<void>((resolve, reject) => {
+      stream.subscribe({
+        next: (event) => events.push(event),
+        complete: resolve,
+        error: reject,
+      });
+    });
+
+    await jest.runAllTimersAsync();
+    await completion;
+
+    expect(trainingService.generateLearningPathForUser).toHaveBeenCalledWith('user-1', {
+      queryText: 'Toi nen hoc khoa nao truoc?',
+      includeMandatoryCourses: true,
+    });
+    expect(events.some((event) => event?.data?.uiPayload?.type === 'learning-path')).toBe(true);
+    expect(conversationService.saveMessage).toHaveBeenLastCalledWith(
+      'conv-path',
+      'assistant',
+      expect.stringContaining('lo trinh'),
+      undefined,
+      expect.objectContaining({
+        orchestration: 'mock',
+        uiPayloadVersion: 1,
+        uiPayload: expect.objectContaining({
+          type: 'learning-path',
+          pathId: 'path-1',
         }),
       }),
     );

@@ -1,6 +1,6 @@
 # Story 5.2: Learning Path Recommender
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -21,29 +21,29 @@ so that I know what to study next for a promotion.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Implement backend learning-path recommendation and retrieval flows in the training module (AC: 1, 2, 3, 4, 8)
-  - [ ] Extend `be/src/modules/training/training.service.ts` with service-owned Prisma logic for current path retrieval, recommendation synthesis, and optional path generation persistence.
-  - [ ] Reuse thin-controller patterns from the quiz slice instead of moving business logic into controllers.
-  - [ ] Read from `users`, `user_skills`, `role_skill_requirements`, `courses`, `course_skills`, `user_courses`, `learning_paths`, `learning_path_items`, and `user_learning_paths` as the source of truth.
-  - [ ] Exclude inactive or duplicate course suggestions and avoid recommending courses the user has already completed unless a clear retry rule is explicitly needed.
+- [x] Task 1: Implement backend learning-path recommendation and retrieval flows in the training module (AC: 1, 2, 3, 4, 8)
+  - [x] Extend `be/src/modules/training/training.service.ts` with service-owned Prisma logic for current path retrieval, recommendation synthesis, and optional path generation persistence.
+  - [x] Reuse thin-controller patterns from the quiz slice instead of moving business logic into controllers.
+  - [x] Read from `users`, `user_skills`, `role_skill_requirements`, `courses`, `course_skills`, `user_courses`, `learning_paths`, `learning_path_items`, and `user_learning_paths` as the source of truth.
+  - [x] Exclude inactive or duplicate course suggestions and avoid recommending courses the user has already completed unless a clear retry rule is explicitly needed.
 
-- [ ] Task 2: Add the correct internal and external API endpoints without mixing security models (AC: 2, 3, 4, 8)
-  - [ ] Add internal training endpoints under `be/src/modules/training/training.internal.controller.ts` for the AI/tool path, using `InternalAgentGuard` and `@AgentScope(...)`.
-  - [ ] Support the existing documented external endpoints in `be/src/modules/training/training.controller.ts` for `GET /api/me/training-recommendations`, `GET /api/me/learning-path`, and `POST /api/me/learning-path/generate`, even if the current controller root must be widened or split away from `@Controller('api/quiz')`.
-  - [ ] Derive internal identity only from `request.internalAgent.userId` and external identity only from the authenticated JWT user.
-  - [ ] Keep response envelopes, trace metadata, and error behavior aligned with the existing global backend stack.
-  - [ ] Pin the internal endpoint matrix explicitly:
+- [x] Task 2: Add the correct internal and external API endpoints without mixing security models (AC: 2, 3, 4, 8)
+  - [x] Add internal training endpoints under `be/src/modules/training/training.internal.controller.ts` for the AI/tool path, using `InternalAgentGuard` and `@AgentScope(...)`.
+  - [x] Support the existing documented external endpoints in `be/src/modules/training/training.controller.ts` for `GET /api/me/training-recommendations`, `GET /api/me/learning-path`, and `POST /api/me/learning-path/generate`, even if the current controller root must be widened or split away from `@Controller('api/quiz')`.
+  - [x] Derive internal identity only from `request.internalAgent.userId` and external identity only from the authenticated JWT user.
+  - [x] Keep response envelopes, trace metadata, and error behavior aligned with the existing global backend stack.
+  - [x] Pin the internal endpoint matrix explicitly:
     - `GET /internal/tools/training/me/learning-path` -> read the user's current active learning path using `@AgentScope('read:training')`
     - `POST /internal/tools/training/me/learning-path/generate` -> generate or refresh the user's personalized path using `@AgentScope('write:training')`
     - `GET /internal/tools/training/me/training-recommendations` -> return gap-based recommendations using `@AgentScope('read:training')`
-  - [ ] Keep quiz routes in their existing quiz surface; do not silently overload quiz-only controller decorators with learning-path handlers without making the route layout explicit in code.
+  - [x] Keep quiz routes in their existing quiz surface; do not silently overload quiz-only controller decorators with learning-path handlers without making the route layout explicit in code.
 
-- [ ] Task 3: Define a stable learning-path chat payload contract and persist it in conversation metadata (AC: 5, 7, 8)
-  - [ ] Reuse the existing one-message/one-`uiPayload` chat contract instead of inventing a second transport or event type.
-  - [ ] Introduce one compact payload type for the roadmap card, for example `learning-path`, with deterministic fields for title, summary, ordered items, gap rationale, and CTA labels if needed.
-  - [ ] Persist the assistant-side roadmap payload in `messages.metadata` so historical conversations can rehydrate the card.
-  - [ ] Keep the payload small and frontend-safe because tool results in the broader OpenClaw pipeline may be sanitized or truncated.
-  - [ ] Add one canonical backend-shaped `learning-path` payload example to align BE DTO shaping, FE normalization, and history persistence:
+- [x] Task 3: Define a stable learning-path chat payload contract and persist it in conversation metadata (AC: 5, 7, 8)
+  - [x] Reuse the existing one-message/one-`uiPayload` chat contract instead of inventing a second transport or event type.
+  - [x] Introduce one compact payload type for the roadmap card, for example `learning-path`, with deterministic fields for title, summary, ordered items, gap rationale, and CTA labels if needed.
+  - [x] Persist the assistant-side roadmap payload in `messages.metadata` so historical conversations can rehydrate the card.
+  - [x] Keep the payload small and frontend-safe because tool results in the broader OpenClaw pipeline may be sanitized or truncated.
+  - [x] Add one canonical backend-shaped `learning-path` payload example to align BE DTO shaping, FE normalization, and history persistence:
     ```json
     {
       "type": "learning-path",
@@ -69,38 +69,38 @@ so that I know what to study next for a promotion.
     }
     ```
 
-- [ ] Task 4: Render the roadmap inline in the existing chat dashboard and preserve current UX behavior (AC: 5, 6, 7, 8)
-  - [ ] Extend `fe/src/services/chatService.js` so `normalizeUiPayload()` recognizes and normalizes the new learning-path payload without regressing checklist, support-contact, or quiz handling.
-  - [ ] Add a dedicated roadmap card render path in `fe/src/pages/ChatDashboardPage.jsx` beside the existing structured assistant card types.
-  - [ ] Reuse `fe/src/services/trainingService.js` for any external learning-path fetch/generate actions required by the UI.
-  - [ ] Keep the implementation in JavaScript/JSX to match the live frontend app; do not start a TypeScript migration in this story.
+- [x] Task 4: Render the roadmap inline in the existing chat dashboard and preserve current UX behavior (AC: 5, 6, 7, 8)
+  - [x] Extend `fe/src/services/chatService.js` so `normalizeUiPayload()` recognizes and normalizes the new learning-path payload without regressing checklist, support-contact, or quiz handling.
+  - [x] Add a dedicated roadmap card render path in `fe/src/pages/ChatDashboardPage.jsx` beside the existing structured assistant card types.
+  - [x] Reuse `fe/src/services/trainingService.js` for any external learning-path fetch/generate actions required by the UI.
+  - [x] Keep the implementation in JavaScript/JSX to match the live frontend app; do not start a TypeScript migration in this story.
 
-- [ ] Task 5: Keep recommendation logic aligned with the live schema and current product rules (AC: 3, 4, 6, 8)
-  - [ ] Use role/position skill requirements as the primary gap-analysis source rather than hardcoded keyword rules.
-  - [ ] Prefer existing active learning-path templates when they already match the user's department/position/target level, and persist user-specific generated output through `user_learning_paths.generated_payload` when personalization is needed.
-  - [ ] Order recommended courses intentionally, respecting prerequisite relationships and required path items where relevant.
-  - [ ] Do not treat `generated/` files as the source of truth for learning-path data.
-  - [ ] Define the `user_learning_paths` lifecycle explicitly:
+- [x] Task 5: Keep recommendation logic aligned with the live schema and current product rules (AC: 3, 4, 6, 8)
+  - [x] Use role/position skill requirements as the primary gap-analysis source rather than hardcoded keyword rules.
+  - [x] Prefer existing active learning-path templates when they already match the user's department/position/target level, and persist user-specific generated output through `user_learning_paths.generated_payload` when personalization is needed.
+  - [x] Order recommended courses intentionally, respecting prerequisite relationships and required path items where relevant.
+  - [x] Do not treat `generated/` files as the source of truth for learning-path data.
+  - [x] Define the `user_learning_paths` lifecycle explicitly:
     - `GET /api/me/learning-path` returns the single current row for the authenticated user where `status = 'active'`, preferring the most recently updated record.
     - If the active row links to `learning_path_id`, hydrate ordered items from `learning_paths` + `learning_path_items` and merge user-specific fields from `generated_payload` only when needed.
     - If the active row has no `learning_path_id`, treat `generated_payload` as the persisted user-specific roadmap view and return that shape directly.
     - `POST /api/me/learning-path/generate` creates a new active `user_learning_paths` row (or replaces the previous active row by marking older active rows inactive) so there is exactly one current path per user for this story.
-  - [ ] Define recommendation fallback behavior so the dev agent does not guess:
+  - [x] Define recommendation fallback behavior so the dev agent does not guess:
     - if the user has no `position_id` or no `role_skill_requirements`, fall back to active department/role-aligned templates when available
     - if no eligible courses remain after filtering completed/inactive items, return a valid empty-state roadmap payload plus assistant text instead of throwing a generic 500
     - if prerequisite chains block all advanced courses, recommend the nearest unmet prerequisite courses first
 
-- [ ] Task 6: Preserve architecture boundaries and existing repo conventions (AC: 2, 4, 5, 8)
-  - [ ] Do not let the frontend call OpenClaw or `/internal/tools/*` directly.
-  - [ ] Do not let OpenClaw query PostgreSQL directly; all training data must flow through backend services and internal tool APIs.
-  - [ ] Keep the feature inside the training domain; do not leak onboarding or analytics-only concerns into this story.
-  - [ ] Follow the live repo conventions: JS/JSX frontend and the current introspected Prisma model naming.
+- [x] Task 6: Preserve architecture boundaries and existing repo conventions (AC: 2, 4, 5, 8)
+  - [x] Do not let the frontend call OpenClaw or `/internal/tools/*` directly.
+  - [x] Do not let OpenClaw query PostgreSQL directly; all training data must flow through backend services and internal tool APIs.
+  - [x] Keep the feature inside the training domain; do not leak onboarding or analytics-only concerns into this story.
+  - [x] Follow the live repo conventions: JS/JSX frontend and the current introspected Prisma model naming.
 
-- [ ] Task 7: Validate backend, frontend, and history rehydration behavior with automated checks (AC: 4, 5, 6, 7, 8)
-  - [ ] Add backend tests for recommendation selection, generated path persistence, ownership checks, internal scope enforcement, and message metadata persistence.
-  - [ ] Add frontend tests for learning-path payload normalization, inline roadmap rendering, malformed-payload fallback, and conversation history rehydration.
-  - [ ] Run `npm run prisma:generate`, `npm run build`, and `npm run test` in `be/` for backend changes.
-  - [ ] Run `npm run lint`, `npm run test`, and `npm run build` in `fe/` for the frontend slice.
+- [x] Task 7: Validate backend, frontend, and history rehydration behavior with automated checks (AC: 4, 5, 6, 7, 8)
+  - [x] Add backend tests for recommendation selection, generated path persistence, ownership checks, internal scope enforcement, and message metadata persistence.
+  - [x] Add frontend tests for learning-path payload normalization, inline roadmap rendering, malformed-payload fallback, and conversation history rehydration.
+  - [x] Run `npm run prisma:generate`, `npm run build`, and `npm run test` in `be/` for backend changes.
+  - [x] Run `npm run lint`, `npm run test`, and `npm run build` in `fe/` for the frontend slice.
 
 ## Dev Notes
 
@@ -327,6 +327,9 @@ openai/gpt-5.4
 - Repo analysis confirmed that the live extension points are the training module on the backend and the structured `uiPayload` chat-card path on the frontend.
 - Repo analysis also confirmed a gap: there is currently no dedicated learning-path implementation slice in `be/src/modules/training/` or a learning-path payload branch in `fe/src/services/chatService.js`.
 - External guidance was added for NestJS validation, Prisma usage, TanStack Query v5, Zustand v5, and Tailwind CSS v4 to prevent version-specific implementation mistakes.
+- Added red-first coverage for training service/controller/internal controller, chat SSE emission, frontend payload normalization, and chat roadmap rendering before implementing the feature.
+- TypeScript LSP diagnostics were unavailable in this environment because `typescript-language-server` is not installed, so verification relied on project builds and full automated test runs instead.
+- Validation completed with `be/`: `npm run prisma:generate`, `npm run build`, `npm test`; and `fe/`: `npm run lint`, `npm run test`, `npm run build`.
 
 ### Completion Notes List
 
@@ -335,12 +338,32 @@ openai/gpt-5.4
 - Story intentionally reuses Story 5.1 patterns to avoid duplicate architecture and keep Epic 5 implementation incremental.
 - Story explicitly warns the dev agent to follow the live repo conventions (JS/JSX frontend and current Prisma schema naming) instead of broad cleanup refactors.
 - No UX artifact or project-context artifact was available, so the story anchors itself to the current chat-card implementation language and the live repo files.
+- Implemented backend learning-path recommendation, active-path retrieval, and personalized path generation in `TrainingService`, including active-row replacement in `user_learning_paths` and compact roadmap payload shaping.
+- Expanded the training API surface with external `GET /api/me/training-recommendations`, `GET /api/me/learning-path`, `POST /api/me/learning-path/generate` and matching internal tool endpoints under `/internal/tools/training/me/*` with read/write training scopes.
+- Extended the mock chat orchestration flow so learning-path prompts emit a versioned `learning-path` `uiPayload` over the existing SSE contract and persist that payload in assistant message metadata for history rehydration.
+- Added frontend roadmap normalization and an inline learning-path card in `ChatDashboardPage.jsx`, while preserving existing checklist, support-contact, and quiz behavior.
+- Verified the slice with focused red/green tests plus full backend/frontend validation; all project tests passed, with one expected logger error line emitted from an existing tool-gateway spec while the backend suite still finished green.
 
 ### File List
 
 - `_bmad-output/implementation-artifacts/5-2-learning-path-recommender.md`
 - `_bmad-output/implementation-artifacts/sprint-status.yaml`
+- `be/src/modules/training/dto/generate-learning-path.dto.ts`
+- `be/src/modules/training/training.controller.ts`
+- `be/src/modules/training/training.controller.spec.ts`
+- `be/src/modules/training/training.internal.controller.ts`
+- `be/src/modules/training/training.internal.controller.spec.ts`
+- `be/src/modules/training/training.service.ts`
+- `be/src/modules/training/training.service.spec.ts`
+- `be/src/modules/chat/chat.service.ts`
+- `be/src/modules/chat/chat.service.spec.ts`
+- `fe/src/services/trainingService.js`
+- `fe/src/services/chatService.js`
+- `fe/src/services/chatService.test.js`
+- `fe/src/pages/ChatDashboardPage.jsx`
+- `fe/src/pages/ChatDashboardPage.test.jsx`
 
 ## Change Log
 
 - `2026-03-23`: Created the comprehensive ready-for-dev story context for Story 5.2 Learning Path Recommender.
+- `2026-03-23`: Implemented Story 5.2 learning-path recommendation APIs, chat roadmap payload persistence, frontend roadmap rendering, and automated validation coverage.
