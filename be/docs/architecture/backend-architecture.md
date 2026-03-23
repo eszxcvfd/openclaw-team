@@ -132,7 +132,7 @@ Nó không phải agent AI, mà là logic điều phối trong backend.
 
 Nhiệm vụ:
 - xác định user được dùng nhóm agent nào
-- phân loại câu hỏi thuộc nghiệp vụ nào
+- phân loại câu hỏi thuộc nghiệp vụ nào theo cơ chế hybrid
 - route request tới agent tương ứng
 - build context phù hợp cho agent
 - chặn yêu cầu vượt quyền
@@ -242,7 +242,12 @@ Chức năng:
 Chức năng:
 - route user request sang đúng nhóm agent
 - kiểm tra user có được dùng agent đó không
-- kiểm tra intent / nghiệp vụ
+- kiểm tra intent / nghiệp vụ theo cơ chế hybrid
+- ưu tiên classifier rule-based với tập `intent` cố định của hệ thống
+- nếu rule-based không match rõ hoặc câu hỏi mơ hồ, gọi Google model classifier ở backend
+- Google classifier dùng `GEMINI_API_KEY`; cho phép `GOOGLE_API_KEY` làm fallback env
+- Google classifier chỉ được chọn trong tập agent đã pass kiểm tra quyền
+- nếu confidence thấp thì yêu cầu làm rõ hoặc fallback về agent an toàn hơn trong tập agent được phép
 
 ### 8.5 context_builder
 Chức năng:

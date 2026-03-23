@@ -93,6 +93,11 @@ Backend phải chịu trách nhiệm:
 
 ### 2.3 Điều phối agent
 - dựa trên role + intent + policy để chọn đúng agent lớn
+- dùng cơ chế hybrid:
+  - match `intent` cố định / rule-based trước
+  - nếu mơ hồ thì fallback sang Google model classifier ở backend
+- Google classifier dùng `GEMINI_API_KEY` (cho phép `GOOGLE_API_KEY` làm fallback env)
+- chỉ được classify trong tập agent mà user đã được phép dùng
 - ví dụ:
   - Onboarding Assistant
   - Learning & Training Agent
@@ -337,8 +342,10 @@ Backend làm các việc:
 - xác thực token
 - xác định user hiện tại
 - kiểm tra quyền
-- xác định intent sơ bộ
-- map sang agent phù hợp
+- xác định intent sơ bộ theo cơ chế hybrid:
+  - classifier rule-based với tập `intent` cố định
+  - nếu không đủ rõ thì gọi Google model classifier ở backend
+- map sang agent phù hợp trong tập agent user được phép dùng
 
 Ví dụ:
 - onboarding question → Onboarding Assistant

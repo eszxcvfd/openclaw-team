@@ -249,7 +249,7 @@ Backend là **control plane chính** của toàn hệ thống.
 | `auth`            | Login, logout, refresh token, verify JWT, session management                      |
 | `iam`             | Users, roles, permissions, role_permissions, user_roles, user_agent_access        |
 | `chat`            | Conversations, messages, session metadata, chat entry point                       |
-| `agent-router`    | Route request sang đúng agent group, kiểm tra user có quyền dùng agent            |
+| `agent-router`    | Route request sang đúng agent group, kiểm tra user có quyền dùng agent, phân loại hybrid (fixed intent → Google model fallback) |
 | `context-builder` | Build user context, session context, allowed resources, sinh USER.md              |
 | `tool-gateway`    | Đăng ký tool, map tool → service, kiểm tra tool access theo agent, log tool calls |
 | `openclaw-client` | Gọi OpenClaw, truyền context + token, nhận response                               |
@@ -277,6 +277,16 @@ Integration Layer   → OpenClaw, Redis, file system, queue
 - Không query DB trực tiếp từ controller
 - Không hardcode permission trong controller
 - Permission phải đi qua guard → policy service → permission service
+
+**Quy tắc phân loại agent bắt buộc:**
+
+- Backend orchestrator phải phân loại theo cơ chế **hybrid**
+- Bước 1: lọc trước danh sách agent user được phép dùng bằng `user_agent_access`, role, permission, policy
+- Bước 2: chạy classifier rule-based với tập `intent` cố định của hệ thống
+- Bước 3: nếu rule-based không match rõ hoặc câu hỏi mơ hồ / đa ý, backend mới được gọi model Google để classify
+- Model classify phải dùng `GEMINI_API_KEY`; có thể chấp nhận `GOOGLE_API_KEY` như alias / fallback env
+- Google classifier chỉ được chọn trong tập agent đã pass bước phân quyền
+- Nếu confidence thấp thì backend phải hỏi lại user hoặc fallback về agent an toàn hơn trong tập agent được phép; không được vượt quyền để “đoán”
 
 ---
 
@@ -500,10 +510,14 @@ generated/
 1. User nhập câu hỏi, FE POST /chat/message với Authorization: Bearer <user_access_token>
 2. BE AuthGuard verify token
 3. BE kiểm tra: userId, role, agent access qua RBAC
-4. BE phân loại intent sơ bộ → route sang agent group:
-   - câu hỏi onboarding → onboarding_assistant
-   - câu hỏi training → learning_training_agent
-   - câu hỏi báo cáo → training_analytics_agent
+4. BE phân loại intent sơ bộ theo cơ chế hybrid → route sang agent group:
+   - match `intent` cố định trước
+   - nếu không rõ thì dùng Google model classifier ở backend
+   - chỉ được chọn trong tập agent user có quyền dùng
+   - ví dụ:
+     - câu hỏi onboarding → onboarding_assistant
+     - câu hỏi training → learning_training_agent
+     - câu hỏi báo cáo → training_analytics_agent
 ```
 
 ### Giai đoạn 3 — Build context

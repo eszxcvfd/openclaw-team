@@ -31,7 +31,7 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 ### Requirements Overview
 
 **Functional Requirements:**
-Hệ thống xoay quanh 15 Yêu cầu Chức năng (FRs). Về mặt kiến trúc, điều này cấu thành hệ thống 2 phân vùng (zones) rõ rệt: Phân vùng Dữ liệu kiểm soát quyền (Backend/DB) và Phân vùng Suy luận (OpenClaw AI Engine). Backend đóng vai trò làm điểm chốt bảo mật (Control Plane), liên tục chặn, phân tích Context, sinh `internal_scoped_token` và bắt HTTP responses/tool calls từ AI Agent.
+Hệ thống xoay quanh 15 Yêu cầu Chức năng (FRs). Về mặt kiến trúc, điều này cấu thành hệ thống 2 phân vùng (zones) rõ rệt: Phân vùng Dữ liệu kiểm soát quyền (Backend/DB) và Phân vùng Suy luận (OpenClaw AI Engine). Backend đóng vai trò làm điểm chốt bảo mật (Control Plane), liên tục chặn, phân tích Context, phân loại agent theo cơ chế hybrid (fixed intent trước, Google model fallback sau), sinh `internal_scoped_token` và bắt HTTP responses/tool calls từ AI Agent.
 
 **Non-Functional Requirements:**
 7 NFRs đặc biệt định hình cấu trúc kỹ thuật:
@@ -266,7 +266,7 @@ openclaw-team/
 **Data Flow (Luồng Chảy Dữ Liệu MVP/Chat Stream):**
 1. User bấm gửi câu hỏi trên Frontend (từ module `fe/src/features/chat`).
 2. Tác vụ FE gọi HTTP POST lên cổng Backend `/api/chat/stream`. 
-3. Backend (`be/src/modules/openclaw`) lọc User Profile trong CSDL làm Context, đính kèm `internal_scoped_token` tương ứng với Role của user, sau đó Call sang AI Engine.
+3. Backend (`be/src/modules/openclaw`) lọc User Profile trong CSDL làm Context, phân loại agent theo cơ chế hybrid trong tập agent user được phép dùng, đính kèm `internal_scoped_token` tương ứng với Role của user, sau đó Call sang AI Engine.
 4. Agent tư duy và xin gọi REST API qua `GET /internal/tools/onboarding/tasks` tại Backend.
 5. Backend System Guard kiểm chứng Scope của token hợp lệ, Query Database, và nhả kết quả JSON.
 6. OpenClaw nhận được JSON, sinh token LLM, gọi Streaming trả ngược luồng về Backend.

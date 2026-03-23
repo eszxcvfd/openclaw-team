@@ -79,6 +79,9 @@ backend/
 │  │  │  ├─ agent-router.service.ts
 │  │  │  ├─ policies/
 │  │  │  ├─ classifiers/
+│  │  │  │  ├─ fixed-intent.classifier.ts
+│  │  │  │  ├─ google-intent.classifier.ts
+│  │  │  │  └─ classification.types.ts
 │  │  │  └─ agent-router.module.ts
 │  │  │
 │  │  ├─ context-builder/
@@ -256,7 +259,11 @@ Bao gồm:
 ### agent-router
 - xác định nên gọi agent nào
 - kiểm tra quyền user với agent
-- phân loại intent cơ bản
+- phân loại intent theo cơ chế hybrid
+- classifier 1: `fixed-intent.classifier.ts` dùng tập `intent` cố định / rule-based
+- classifier 2: `google-intent.classifier.ts` dùng Google model fallback khi câu hỏi mơ hồ
+- Google classifier dùng `GEMINI_API_KEY`; cho phép `GOOGLE_API_KEY` làm fallback env
+- chỉ được trả về agent nằm trong tập agent user đã được phép dùng
 
 ### context-builder
 - lấy user profile
@@ -317,7 +324,10 @@ Luồng chat chuẩn trong code:
 1. `ChatController` nhận message
 2. `AuthGuard` xác thực user
 3. `ChatService` tạo / lấy conversation
-4. `AgentRouterService` chọn agent phù hợp
+4. `AgentRouterService` chọn agent phù hợp theo cơ chế hybrid:
+   - lọc tập agent được phép dùng
+   - match `intent` cố định trước
+   - nếu không rõ thì gọi Google classifier
 5. `ContextBuilderService` build context
 6. `OpenClawService` gửi request
 7. nếu OpenClaw gọi tool:
